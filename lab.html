@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Particle Lab — Asymmetry Protocol</title>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js" } }
+</script>
+<link rel="stylesheet" href="./theme-orbit.css">
+<style>
+  html,body{margin:0;padding:0;min-height:100%;}
+  body{background:#04050A;color:#fff;font-family:var(--ui);}
+  .lab{max-width:1180px;margin:0 auto;padding:22px 20px 60px;position:relative;z-index:1;}
+
+  .lab-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .lab-head .mark{font-size:10.5px;font-weight:500;letter-spacing:.26em;text-transform:uppercase;color:rgba(255,255,255,.72);}
+  .lab-head h1{font-size:20px;font-weight:200;margin:0;}
+  .lab-head p{margin:0;font-size:12.5px;color:rgba(255,255,255,.45);flex:1 1 240px;line-height:1.6;}
+
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start;}
+  @media (max-width:880px){ .grid{grid-template-columns:1fr;} }
+
+  .stage-wrap{position:sticky;top:16px;}
+  #stage{
+    position:relative;width:100%;height:340px;overflow:hidden;
+    background:radial-gradient(58% 62% at 62% 44%,rgba(110,92,240,.08),transparent 72%),
+               linear-gradient(180deg,#080A11,#05060C 62%,#04050A);
+  }
+  #stage::before{
+    content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:linear-gradient(90deg,transparent calc(50% - .5px),rgba(255,255,255,.10) calc(50% - .5px),
+      rgba(255,255,255,.10) calc(50% + .5px),transparent calc(50% + .5px));
+    mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);
+  }
+  .sizes{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 0;}
+  .sizes button{
+    background:transparent;border:1px solid rgba(255,255,255,.13);color:rgba(255,255,255,.6);
+    border-radius:8px;padding:7px 12px;font:inherit;font-size:12px;cursor:pointer;
+  }
+  .sizes button.on{background:rgba(110,92,240,.18);border-color:rgba(155,140,255,.34);color:#fff;}
+  .readout{margin-top:12px;font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.8;}
+  .readout b{color:rgba(255,255,255,.78);font-weight:400;}
+
+  .panel{border-left:1px solid rgba(255,255,255,.13);padding:0 0 0 16px;}
+  .panel h2{
+    font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;
+    color:rgba(255,255,255,.38);margin:22px 0 12px;
+  }
+  .panel h2:first-child{margin-top:0;}
+  .knob{margin-bottom:13px;}
+  .knob .lab-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px;}
+  .knob .name{color:rgba(255,255,255,.72);}
+  .knob .val{color:rgba(155,140,255,.9);font-variant-numeric:tabular-nums;font-size:11.5px;}
+  .knob .why{font-size:11px;color:rgba(255,255,255,.3);margin-top:4px;line-height:1.5;}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:rgba(255,255,255,.16);border-radius:2px;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:#9B8CFF;cursor:pointer;box-shadow:0 0 10px rgba(155,140,255,.55);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;border:none;background:#9B8CFF;cursor:pointer;
+  }
+  input[type=range]:focus-visible{outline:2px solid #9B8CFF;outline-offset:4px;}
+
+  .acts{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
+  .acts button{
+    flex:1;min-width:96px;padding:11px 12px;border-radius:10px;font:inherit;font-size:12.5px;cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);color:#fff;
+  }
+  .acts button.primary{background:linear-gradient(135deg,#6E5CF0,#9B8CFF);border-color:transparent;font-weight:500;}
+  .acts button:hover{border-color:rgba(155,140,255,.4);}
+  #out{
+    width:100%;margin-top:14px;min-height:120px;background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.11);border-radius:10px;color:rgba(255,255,255,.75);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;padding:11px;resize:vertical;
+  }
+  .note{font-size:11.5px;color:rgba(255,255,255,.34);line-height:1.7;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="lab-head">
+    <span class="mark">Asymmetry Protocol</span>
+    <h1>粒子調參室</h1>
+    <p>左邊是真的引擎，不是模擬圖。拉到滿意為止，按「匯出設定」，把那段貼進 particle-human.js 最上面的 CONFIG。</p>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="stage-wrap">
+        <div id="stage"></div>
+        <div class="sizes">
+          <button data-h="240" class="on">卡片 240px</button>
+          <button data-h="330">首頁 330px</button>
+          <button data-h="520">大圖 520px</button>
+          <button data-h="760">開場全螢幕</button>
+        </div>
+        <div class="readout" id="readout"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel">
+      <h2>顆粒</h2>
+      <h2>形體</h2>
+      <h2>顏色</h2>
+      <h2>動態</h2>
+      <h2>鏡頭</h2>
+      <div class="acts">
+        <button id="replay">重播開場</button>
+        <button id="reset">回到預設</button>
+        <button id="export" class="primary">匯出設定</button>
+      </div>
+      <textarea id="out" readonly placeholder="按「匯出設定」後，這裡會出現可以直接貼回 CONFIG 的內容"></textarea>
+      <p class="note">顆粒與形體的調整需要重建點雲（約 0.1–0.3 秒），放開滑桿後才會套用。動態、鏡頭、顏色濃度是即時的。</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import PH from './particle-human.js';
+
+const stage = document.getElementById('stage');
+const panel = document.getElementById('panel');
+const out = document.getElementById('out');
+const readout = document.getElementById('readout');
+
+PH.mount(stage);
+const C = PH.getConfig();
+
+/* Each knob names the CONFIG path it writes to, and whether changing it needs
+   the point cloud rebuilt (heavy) or only a uniform pushed (instant). */
+const KNOBS = [
+  ['顆粒', [
+    ['particles.countDesktop', 6000, 60000, 1000, 'heavy', '總粒子數。數量決定「沙感」，但真正畫出來的數量會依容器大小自動縮減。'],
+    ['render.sizeMin',  0.003, 0.020, 0.0005, 'heavy', '最小顆粒。大部分粒子都會落在這個值附近——這一項是「粗 / 細」的主控。'],
+    ['render.sizeMax',  0.010, 0.060, 0.001,  'heavy', '最大顆粒。只有少數粒子會用到。'],
+    ['render.sizeBias', 1.0,   6.0,   0.1,    'heavy', '越大，越多粒子貼近最小值。這是避免糊成一團的關鍵。'],
+    ['render.maxPx',    1.5,   8.0,   0.1,    'live',  '單顆粒在螢幕上的像素上限，硬性封頂。'],
+    ['render.opacity',  0.25,  1.40,  0.02,   'live',  '整體亮度基準。'],
+    ['particles.brightFraction', 0.0, 0.25, 0.005, 'heavy', '有明顯光暈的亮點比例。超過 0.1 就會開始像霓虹燈。'],
+    ['render.softness', 0.0,   1.0,   0.02,   'live',  '亮點的光暈強度。'],
+  ]],
+  ['形體', [
+    ['particles.surfaceBias',    0.0, 1.0,  0.02,  'heavy', '越大，粒子越貼近體表，輪廓越清楚。'],
+    ['particles.shellThickness', 0.02, 0.25, 0.005, 'heavy', '體表那層密集殼的厚度。'],
+    ['particles.coreSparsity',   0.02, 0.60, 0.01,  'heavy', '身體內部的粒子密度。越低越空心。'],
+    ['particles.metaballBlend',  0.01, 0.12, 0.005, 'heavy', '身體各部位之間的融合程度。太大會讓脖子被肩膀吃掉。'],
+    ['render.depthFade',         0.05, 1.0,  0.02,  'live',  '背面粒子的亮度。越低立體感越強。'],
+  ]],
+  ['顏色', [
+    ['tint.strength',      0.0, 1.0,  0.02,  'heavy', '左藍右金的分色強度。0 = 純白身體，1 = 硬分色。'],
+    ['tint.sparkFraction', 0.0, 0.25, 0.005, 'heavy', '紫色亮點的比例。'],
+    ['render.dimFloor',    0.05, 0.40, 0.01, 'heavy', '暗部粒子的最低亮度。'],
+    ['render.dimCeil',     0.30, 1.00, 0.02, 'heavy', '暗部粒子的最高亮度。'],
+  ]],
+  ['動態', [
+    ['asymmetry.value',      0.0,  1.0,  0.02,   'live', '不對稱程度。接上真實數據後由左右差 % 驅動。'],
+    ['asymmetry.tiltMax',    0.0,  0.15, 0.005,  'live', '最大不對稱時身體傾斜多少。'],
+    ['breathing.amplitude',  0.0,  0.05, 0.002,  'live', '呼吸幅度。'],
+    ['breathing.periodSec',  3.0,  20.0, 0.5,    'live', '一次呼吸幾秒。'],
+    ['rotation.amplitude',   0.0,  0.5,  0.01,   'live', '左右微幅轉動的角度（弧度）。'],
+    ['noise.amplitude',      0.0,  0.02, 0.0005, 'live', '粒子自身的浮動。太大就會變成一直在抖。'],
+    ['mouse.strength',       0.0,  0.5,  0.01,   'live', '滑鼠推開粒子的力道。'],
+    ['mouse.radius',         0.1,  1.2,  0.02,   'live', '滑鼠影響範圍。'],
+  ]],
+  ['鏡頭', [
+    ['camera.distance', 2.4, 5.5,  0.05, 'live', '鏡頭距離。越近人體越大。'],
+    ['camera.fov',      18,  50,   1,    'live', '視角。越小透視越平。'],
+    ['camera.offsetX',  0.0, 1.2,  0.02, 'live', '寬版面時人體往右偏多少，左邊留白給文字。窄螢幕會自動回到置中。'],
+  ]],
+];
+
+function get(path){ return path.split('.').reduce((o,k)=>o[k], C); }
+function patchFor(path, v){
+  const keys = path.split('.');
+  const root = {}; let cur = root;
+  keys.forEach((k,i)=>{ if(i===keys.length-1) cur[k]=v; else cur = (cur[k]={}); });
+  return root;
+}
+function fmt(v, step){
+  const dp = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+  return v.toFixed(dp);
+}
+
+let heavyTimer = null;
+function scheduleHeavy(){
+  clearTimeout(heavyTimer);
+  heavyTimer = setTimeout(()=>{ PH.rebuild(); updateReadout(); }, 90);
+}
+
+const headings = [...panel.querySelectorAll('h2')];
+KNOBS.forEach(([group, rows], gi)=>{
+  const anchor = headings[gi];
+  const frag = document.createDocumentFragment();
+  rows.forEach(([path, min, max, step, mode, why])=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'knob';
+    const cur = get(path);
+    wrap.innerHTML =
+      '<div class="lab-row"><span class="name"></span><span class="val"></span></div>' +
+      '<input type="range">' +
+      '<div class="why"></div>';
+    wrap.querySelector('.name').textContent = path.split('.').pop();
+    wrap.querySelector('.why').textContent = why;
+    const val = wrap.querySelector('.val');
+    const input = wrap.querySelector('input');
+    Object.assign(input, { min, max, step, value: cur });
+    input.setAttribute('aria-label', path);
+    val.textContent = fmt(cur, step);
+    input.addEventListener('input', ()=>{
+      const v = parseFloat(input.value);
+      val.textContent = fmt(v, step);
+      if (path === 'particles.countDesktop') {
+        deepSet('particles.countDesktop', v);
+        deepSet('particles.countMobile', Math.round(v * 0.58));
+        scheduleHeavy();
+        return;
+      }
+      if (mode === 'heavy'){ deepSet(path, v); scheduleHeavy(); }
+      else { PH.tune(patchFor(path, v)); updateReadout(); }
+    });
+    frag.appendChild(wrap);
+  });
+  anchor.after(frag);
+});
+
+function deepSet(path, v){
+  const keys = path.split('.');
+  let cur = C;
+  keys.forEach((k,i)=>{ if(i===keys.length-1) cur[k]=v; else cur=cur[k]; });
+}
+
+document.querySelectorAll('.sizes button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.sizes button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    stage.style.height = b.dataset.h + 'px';
+    setTimeout(updateReadout, 60);
+  });
+});
+
+document.getElementById('replay').addEventListener('click', ()=>PH.replay());
+document.getElementById('reset').addEventListener('click', ()=>location.reload());
+document.getElementById('export').addEventListener('click', ()=>{
+  const pick = (o)=>JSON.parse(JSON.stringify(o));
+  out.value = JSON.stringify({
+    colors: pick(C.colors), tint: pick(C.tint), particles: pick(C.particles),
+    render: pick(C.render), camera: pick(C.camera), breathing: pick(C.breathing),
+    rotation: pick(C.rotation), asymmetry: pick(C.asymmetry),
+    mouse: pick(C.mouse), noise: pick(C.noise),
+  }, null, 2);
+  out.select();
+});
+
+function updateReadout(){
+  const s = PH.getStats();
+  readout.innerHTML =
+    '雲內粒子 <b>' + s.count.toLocaleString() + '</b> · ' +
+    '容器高 <b>' + stage.clientHeight + 'px</b> · ' +
+    'DPR <b>' + s.dpr + '</b> · ' +
+    '判定為 <b>' + (s.mobile ? '行動裝置' : '桌機') + '</b>' +
+    '<br>實際畫出的數量會依容器高度自動縮減，所以小卡片不會糊成一片白。';
+}
+setTimeout(updateReadout, 400);
+</script>
+</body>
+</html>

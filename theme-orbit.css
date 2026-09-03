@@ -1,0 +1,467 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400;500;600&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap');
+
+/* ============================================================================
+   ASYMMETRY PROTOCOL — ORBIT theme
+   ----------------------------------------------------------------------------
+   This file is an override layer. It is loaded AFTER the stylesheet already
+   inside index.html and never replaces it, so nothing in the app's markup or
+   logic has to change and removing the one <link> tag restores the old look
+   exactly.
+
+   Three rules hold the system together:
+
+   1. Indigo is the interface. Cyan and gold are data.
+      Indigo (--field) is used for anything the system does: the active tab,
+      the primary action, focus. Cyan (--left) and gold (--right) are used
+      only where they mean left side and right side. A colour never does both
+      jobs, so a gold element on screen always means "right".
+
+   2. A card's left rule says what the card is.
+      Cards have no fill and no border. They carry a 1px rule on the left in
+      the colour of their content. Structure carries the information instead
+      of decoration.
+
+   3. The midline is the only ornament.
+      One hairline down the centre of the figure. In a system built around
+      left/right difference, the midline is what difference is measured
+      against, so it is the one mark that earns repeating.
+   ============================================================================ */
+
+:root{
+  /* ---- ground ---- */
+  --void:#04050A;
+  --well:#080A11;
+  --shelf:#0D1018;
+
+  /* ---- app tokens, remapped ---- */
+  --bg:#04050A;
+  --bg-2:#080A11;
+  --surface:rgba(255,255,255,.028);
+  --surface-2:rgba(255,255,255,.055);
+
+  --ink:#FFFFFF;
+  --ink-dim:rgba(255,255,255,.62);
+  --ink-faint:rgba(255,255,255,.34);
+
+  --line:rgba(255,255,255,.075);
+  --line-2:rgba(255,255,255,.13);
+
+  /* ---- the interface colour ---- */
+  --field:#6E5CF0;
+  --field-2:#9B8CFF;
+  --field-soft:rgba(110,92,240,.18);
+  --field-line:rgba(155,140,255,.34);
+
+  /* ---- data colours: left / right ---- */
+  --left:#7FC8DE;        --left-strong:#A8DCEC;   --left-bg:rgba(127,200,222,.09);
+  --right:#E8C37F;       --right-strong:#F0D3A0;  --right-bg:rgba(232,195,127,.09);
+
+  --danger:#E4675A;      --danger-bg:rgba(228,103,90,.09);  --danger-line:rgba(228,103,90,.28);
+  --ok:#63C08C;          --ok-bg:rgba(99,192,140,.09);
+  --know:#9B8CFF;        --know-bg:rgba(155,140,255,.09);   --know-line:rgba(155,140,255,.26);
+  --lock:rgba(255,255,255,.3); --lock-bg:rgba(255,255,255,.04);
+  --accent:#9B8CFF;
+
+  --paper:rgba(255,255,255,.045);
+  --paper-ink:rgba(255,255,255,.9);
+  --paper-dim:rgba(255,255,255,.5);
+
+  --radius:14px;
+  --radius-sm:10px;
+  --shadow:none;
+
+  --ui:'Inter Tight','Noto Sans TC',-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;
+}
+
+/* ============================================================================
+   Ground: a deep field with a faint star texture and two slow washes.
+   The texture must be invisible until you look for it — if you can see
+   individual stars without leaning in, it is too strong.
+   ============================================================================ */
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--ui);
+  font-weight:400;
+  letter-spacing:.005em;
+}
+body::before{
+  content:"";
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:url("data:image/png;base64,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");
+  background-repeat:repeat;
+  background-size:256px 256px;
+  opacity:.5;
+}
+body::after{
+  content:"";
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(58% 42% at 74% 8%,  rgba(110,92,240,.115), transparent 70%),
+    radial-gradient(52% 40% at 12% 30%, rgba(60,110,190,.075), transparent 72%),
+    radial-gradient(70% 46% at 50% 104%, rgba(155,140,255,.07), transparent 70%);
+}
+#app{position:relative; z-index:1; max-width:660px;}
+
+/* ============================================================================
+   Type
+   Chinese headings are set at weight 200-300. That single choice does more for
+   the feel of this interface than any effect, and it is the reason the display
+   family is loaded at those weights.
+   ============================================================================ */
+.disp,h1,h2,h3,h4,.num,#tabbar button,.btn,.pill,.badge-day{font-family:var(--ui);}
+h1,h2,h3,h4{font-weight:300; letter-spacing:-.005em;}
+.num{font-variant-numeric:tabular-nums; font-weight:300;}
+a{color:var(--field-2); text-underline-offset:3px;}
+
+/* ============================================================================
+   Top rail
+   The old header stacked an all-caps eyebrow, a 22px H1 and a subtitle, which
+   cost about 90px before any content. It becomes a 46px glass rail: the mark
+   on the left, the week on the right. The page title moves into the hero,
+   where it sits over the figure.
+   ============================================================================ */
+#topbar{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; gap:10px;
+  padding:0 16px; height:46px;
+  background:rgba(6,8,14,.72);
+  backdrop-filter:blur(18px) saturate(150%);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
+  border-bottom:1px solid var(--line);
+}
+#topbar .eyebrow{
+  order:1; margin:0;
+  font-size:10.5px; font-weight:500; letter-spacing:.26em; text-transform:uppercase;
+  color:rgba(255,255,255,.72); white-space:nowrap;
+}
+/* the identity mark: a thin triangle that turns once a minute */
+#topbar::before{
+  content:""; order:0; flex:none;
+  width:13px; height:13px;
+  border:1px solid var(--field-2);
+  clip-path:polygon(50% 0,100% 100%,0 100%);
+  background:linear-gradient(150deg,var(--field-2),rgba(110,92,240,.15));
+  animation:orbit-mark 60s linear infinite;
+}
+@keyframes orbit-mark{ to{ transform:rotate(360deg); } }
+#topbar h1{
+  order:3; margin-left:auto;
+  font-size:11.5px; font-weight:400; color:var(--ink-faint);
+  letter-spacing:.04em; white-space:nowrap;
+}
+#topbar .sub{
+  order:4; margin:0;
+  font-size:11.5px; color:var(--ink-dim); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:46%;
+}
+#topbar h1:empty,#topbar .sub:empty{display:none;}
+
+#view{padding:0 16px calc(104px + var(--safe-b));}
+.screen{animation:none;}
+
+/* ============================================================================
+   Hero
+   Full-bleed, deeper than the page, with the figure pushed right of centre by
+   the particle engine and the midline running down the middle.
+   ============================================================================ */
+.particle-hero{
+  position:relative;
+  height:clamp(230px,54vw,330px);
+  margin:0 -16px 18px;
+  width:auto;
+  border:none; border-radius:0;
+  background:
+    radial-gradient(58% 62% at 66% 44%, rgba(110,92,240,.08), transparent 72%),
+    linear-gradient(180deg, var(--well) 0%, #05060C 62%, var(--void) 100%);
+  isolation:isolate;
+  overflow:hidden;
+}
+/* midline + edge falloff, in one layer */
+.particle-hero::before{
+  content:"";
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:
+    linear-gradient(90deg, transparent calc(50% - .5px),
+      rgba(255,255,255,.11) calc(50% - .5px), rgba(255,255,255,.11) calc(50% + .5px),
+      transparent calc(50% + .5px)),
+    radial-gradient(72% 78% at 50% 50%, transparent 52%, rgba(4,5,10,.72) 100%);
+  mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%);
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%);
+}
+/* standing line */
+.particle-hero::after{
+  content:"";
+  position:absolute; left:12%; right:12%; bottom:34px; height:1px; z-index:2;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent);
+}
+/* meta block, when the markup provides one */
+.particle-hero .ph-type{
+  position:absolute; left:20px; bottom:20px; z-index:3; text-align:left;
+}
+.particle-hero .ph-eyebrow{
+  font-size:10px; font-weight:500; letter-spacing:.24em; text-transform:uppercase;
+  color:rgba(255,255,255,.42); margin-bottom:6px;
+}
+.particle-hero .ph-day{
+  font-size:26px; font-weight:200; color:#fff; line-height:1.1; letter-spacing:-.01em;
+}
+
+/* ============================================================================
+   Full-screen entrance
+   ============================================================================ */
+.particle-hero.ph-boot{
+  position:fixed; inset:0; z-index:9999;
+  width:100vw; height:100vh; margin:0; border-radius:0;
+  background:
+    radial-gradient(60% 46% at 50% 40%, rgba(110,92,240,.10), transparent 72%),
+    #04050A;
+}
+.particle-hero .ph-boot-mark{display:none;}
+.particle-hero.ph-boot .ph-type{display:none;}
+.particle-hero.ph-boot .ph-boot-mark{
+  display:block; position:absolute; left:50%; bottom:13%; transform:translateX(-50%);
+  font-size:10.5px; font-weight:500; letter-spacing:.42em; text-transform:uppercase;
+  color:rgba(255,255,255,.5); white-space:nowrap;
+  opacity:0; animation:orbit-boot-in 1.6s cubic-bezier(.22,.61,.36,1) .5s forwards;
+}
+@keyframes orbit-boot-in{ from{opacity:0; letter-spacing:.62em;} to{opacity:1; letter-spacing:.42em;} }
+
+/* ============================================================================
+   Cards
+   No fill, no box shadow, no border. A single left rule whose colour says what
+   the card holds.
+   ============================================================================ */
+.card,.ex-card,.chart-card,.km-card,.sym-card,.flag-card,.statbox,.streak-box,.day-list{
+  background:transparent;
+  border:none;
+  border-left:1px solid var(--line-2);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow:none;
+}
+.card,.chart-card,.km-card{padding:14px 16px; margin-bottom:14px;}
+.card::before,.chart-card::before{content:none;}
+.card.paper{
+  background:rgba(255,255,255,.035);
+  border-left-color:rgba(255,255,255,.22);
+  color:rgba(255,255,255,.9);
+}
+.card.paper .ink-dim{color:rgba(255,255,255,.52);}
+
+.ex-card{margin-bottom:2px; border-left-color:var(--line);}
+.ex-card.open{border-left-color:var(--field-2); background:rgba(255,255,255,.022);}
+.ex-card.done{border-left-color:var(--ok);}
+.ex-card.locked{opacity:.4;}
+.ex-num{
+  background:transparent; border:1px solid var(--line-2);
+  color:var(--ink-faint); font-weight:400; font-size:11px;
+}
+.ex-name{font-weight:400; font-size:15px;}
+
+.km-card{border-left-color:var(--know);}
+.flag-card{border-left-color:var(--danger); background:rgba(228,103,90,.05); border-radius:0 var(--radius-sm) var(--radius-sm) 0;}
+.flag-item{border-bottom-color:rgba(255,255,255,.08); color:rgba(255,255,255,.72);}
+.sym-card{border-left-color:var(--line-2);}
+
+/* left / right chips: a rule, not a filled box */
+.lr-chip{
+  background:transparent !important;
+  border:none; border-left:2px solid;
+  border-radius:0; padding:6px 0 6px 11px;
+}
+.lr-chip.left{border-left-color:var(--left);}
+.lr-chip.right{border-left-color:var(--right);}
+.lr-chip .lr-label{font-size:10px; letter-spacing:.18em; font-weight:500;}
+
+/* ============================================================================
+   Section headings
+   The original set every heading in tracked-out caps. One label per screen is
+   a signal; a label above every block is noise. These become quiet sentence
+   case, and the caps treatment is kept only for the wordmark.
+   ============================================================================ */
+.section-title{
+  font-size:12px; letter-spacing:.01em; text-transform:none;
+  color:var(--ink-dim); font-weight:400;
+  margin:26px 0 10px; padding-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+
+/* ============================================================================
+   Controls
+   ============================================================================ */
+.btn{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line-2);
+  border-radius:11px; font-weight:400; letter-spacing:.01em;
+  transition:background .18s ease, border-color .18s ease, box-shadow .22s ease;
+}
+.btn:hover{background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.2);}
+.btn.primary{
+  background:linear-gradient(135deg,var(--field) 0%,var(--field-2) 100%);
+  border-color:transparent; color:#fff; font-weight:500;
+  box-shadow:0 0 0 rgba(110,92,240,0);
+}
+.btn.primary:hover{box-shadow:0 6px 26px rgba(110,92,240,.42);}
+.btn.ghost{background:transparent;}
+.btn.danger{background:var(--danger); border-color:var(--danger); color:#fff;}
+.btn:active{transform:scale(.985);}
+.iconbtn{background:transparent; border:1px solid var(--line-2); border-radius:10px;}
+.iconbtn:hover{border-color:var(--field-line); color:var(--field-2);}
+
+.pill{background:rgba(255,255,255,.06); font-weight:400; letter-spacing:.02em;}
+
+.chip,.seg button,.scoreband button,.daytype-pill{
+  background:transparent; border:1px solid var(--line-2);
+  color:var(--ink-dim); font-weight:400; border-radius:9px;
+}
+.chip.sel,.seg button.sel,.daytype-pill.sel{
+  background:var(--field-soft); border-color:var(--field-line); color:#fff;
+}
+.scoreband button.sel{background:var(--danger); border-color:var(--danger); color:#fff;}
+.chip.sel.know{background:rgba(155,140,255,.2); border-color:var(--know-line);}
+
+.field input[type=number],.field input[type=text],.field select,.field textarea,
+.searchbox input,.sync-area input[type=text],.sync-area input[type=password],
+.backup-area textarea{
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--line-2);
+  border-radius:10px; color:#fff;
+}
+.field input:focus,.field select:focus,.field textarea:focus,.searchbox input:focus{
+  outline:none; border-color:var(--field-line);
+  box-shadow:0 0 0 3px rgba(110,92,240,.16);
+}
+.field label{font-weight:400; color:var(--ink-dim);}
+
+.check-box{border-color:var(--line-2); border-width:1px; border-radius:6px;}
+.check-row.done .check-box{background:var(--ok); border-color:var(--ok);}
+.check-row{border-bottom-color:var(--line);}
+
+.progress-wrap{background:rgba(255,255,255,.07);}
+.progress-bar{background:linear-gradient(90deg,var(--field),var(--field-2));}
+
+.complete-hero{
+  background:linear-gradient(135deg,var(--field) 0%,var(--field-2) 100%);
+  color:#fff; font-weight:500; border-radius:12px;
+  box-shadow:0 8px 30px rgba(110,92,240,.3);
+}
+.complete-hero.done{
+  background:transparent; border:1px solid var(--line-2);
+  color:var(--ink-dim); box-shadow:none;
+}
+
+.banner{border-radius:0 var(--radius-sm) var(--radius-sm) 0; border:none; border-left:2px solid var(--line-2); background:rgba(255,255,255,.03);}
+.banner.warn{border-left-color:var(--right); background:rgba(232,195,127,.06);}
+.banner.done{border-left-color:var(--ok); background:rgba(99,192,140,.06);}
+.banner.deload{border-left-color:var(--field-2); background:rgba(155,140,255,.06);}
+
+/* ============================================================================
+   Date navigation — the one centred element on the page, because it is a
+   symmetric control.
+   ============================================================================ */
+.datenav{margin:0 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line);}
+.datenav .dow{font-size:11px; letter-spacing:.1em; color:var(--ink-faint);}
+.datenav .dt{font-size:19px; font-weight:200; letter-spacing:0; margin-top:3px;}
+.today-jump button{color:var(--field-2);}
+
+/* ============================================================================
+   Day-type badges — outlines, not filled blocks
+   ============================================================================ */
+.badge-day{
+  background:transparent !important;
+  border:1px solid currentColor;
+  border-radius:6px; padding:4px 9px;
+  font-size:11.5px; font-weight:400; letter-spacing:.04em;
+}
+.dt-上肢A,.dt-上肢B{color:var(--right);}
+.dt-下肢{color:#E9A87C;}
+.dt-輕鬆日{color:var(--ok);}
+.dt-打波{color:#EE9A7C;}
+.dt-休息{color:rgba(255,255,255,.45);}
+.dt-測試日{color:var(--know);}
+
+/* ============================================================================
+   Statistics
+   ============================================================================ */
+.statstrip,.streak-strip{gap:1px;}
+.statbox,.streak-box{
+  background:transparent; border:none;
+  border-left:1px solid var(--line); border-radius:0;
+  padding:10px 0 10px 13px;
+}
+.statbox .sv,.streak-box .sv{font-weight:200; letter-spacing:-.02em;}
+.statbox .sl,.streak-box .sl{color:var(--ink-faint); font-size:10.5px; letter-spacing:.04em;}
+.chart-card{padding:16px 4px 12px 14px;}
+.chart-empty{color:var(--ink-faint);}
+.chart-legend{color:var(--ink-dim);}
+
+/* asymmetry index card, when the markup provides one */
+.asym-index-card{
+  background:linear-gradient(180deg,var(--well),var(--void));
+  border:none; border-radius:0; margin:0 -16px 18px;
+}
+.asym-index-eyebrow{
+  padding:16px 20px 0;
+  font-size:10px; font-weight:500; letter-spacing:.24em; text-transform:uppercase;
+  color:rgba(255,255,255,.4);
+}
+.particle-hero--compact{height:clamp(200px,50vw,260px); margin:0; border:none;}
+.asym-index-readout{gap:0; padding:2px 16px 20px; align-items:stretch;}
+.asym-index-readout .ai-side{flex:1; text-align:left; padding-left:12px; border-left:1px solid var(--line-2);}
+.asym-index-readout .ai-left{border-left-color:var(--left);}
+.asym-index-readout .ai-right{border-left-color:var(--right);}
+.asym-index-readout .ai-side b{font-size:28px; font-weight:200; letter-spacing:-.02em;}
+.asym-index-readout .ai-side span{color:var(--ink-faint); font-size:9.5px; letter-spacing:.16em;}
+.asym-index-readout .ai-gap{flex:0 0 auto; padding:0 14px; text-align:center;}
+.asym-index-readout .ai-gap b{font-size:16px; font-weight:400; color:#fff;}
+
+/* ============================================================================
+   Calendar
+   ============================================================================ */
+.day-item{border-bottom-color:var(--line); padding:12px 4px;}
+.day-item.istoday{background:linear-gradient(90deg,var(--field-soft),transparent 60%); border-radius:8px;}
+
+/* ============================================================================
+   Tab bar
+   ============================================================================ */
+#tabbar{
+  max-width:660px;
+  background:rgba(6,8,14,.78);
+  backdrop-filter:blur(20px) saturate(150%);
+  -webkit-backdrop-filter:blur(20px) saturate(150%);
+  border-top:1px solid var(--line);
+  padding:9px 2px calc(9px + var(--safe-b));
+}
+#tabbar button{color:rgba(255,255,255,.34); font-size:10px; letter-spacing:.02em; position:relative;}
+#tabbar button .ico{width:20px; height:20px; stroke-width:1.4;}
+#tabbar button.active{color:#fff;}
+#tabbar button.active .ico{color:var(--field-2); filter:drop-shadow(0 0 9px rgba(155,140,255,.55));}
+#tabbar button.active::before{
+  content:""; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+  width:22px; height:1px; background:var(--field-2);
+  box-shadow:0 0 10px 1px rgba(155,140,255,.7);
+}
+
+.footer-note{color:var(--ink-faint); font-size:11px;}
+hr.hair{border-top-color:var(--line);}
+
+/* ============================================================================
+   Accessibility and motion
+   ============================================================================ */
+:where(button,a,input,select,textarea):focus-visible{
+  outline:2px solid var(--field-2);
+  outline-offset:2px;
+}
+@media (prefers-reduced-motion:reduce){
+  #topbar::before{animation:none;}
+  .particle-hero.ph-boot .ph-boot-mark{animation:none; opacity:.5;}
+}
+
+/* ============================================================================
+   Wide screens: the column stays narrow, the field does not
+   ============================================================================ */
+@media (min-width:720px){
+  .particle-hero{height:340px;}
+  #view{padding-left:22px; padding-right:22px;}
+  .particle-hero,.asym-index-card{margin-left:-22px; margin-right:-22px;}
+}

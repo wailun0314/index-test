@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>ORBIT 改版預覽 — 不對稱訓練系統</title>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js" } }
+</script>
+<link rel="stylesheet" href="./theme-orbit.css">
+<style>
+  /* Only what the real index.html already provides and this standalone page
+     does not. Everything visual comes from theme-orbit.css. */
+  :root{ --safe-b: env(safe-area-inset-bottom, 0px); }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;min-height:100vh;}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
+  #app{max-width:660px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  #view{flex:1;}
+  #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0 auto;display:flex;}
+  #tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 1px;border-radius:12px;font-size:10px;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .muted{color:var(--ink-dim);} .tiny{font-size:12px;}
+  .lr-wrap{display:flex;gap:16px;margin:10px 0;}
+  .lr-chip{flex:1;}
+  .lr-chip .lr-label{display:flex;align-items:center;gap:6px;text-transform:uppercase;margin-bottom:4px;}
+  .lr-dot{width:6px;height:6px;border-radius:50%;}
+  .lr-chip.left .lr-label{color:var(--left-strong);} .lr-chip.left .lr-dot{background:var(--left);}
+  .lr-chip.right .lr-label{color:var(--right-strong);} .lr-chip.right .lr-dot{background:var(--right);}
+  .lr-val{font-size:19px;font-weight:200;font-variant-numeric:tabular-nums;}
+  .banner{padding:12px 14px;font-size:13px;line-height:1.75;margin-bottom:16px;color:rgba(255,255,255,.78);}
+  .chipbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:99px;font-size:11.5px;}
+  .daytype-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;}
+  .daytype-pill{padding:10px 13px;font-size:12.5px;line-height:1.3;text-align:center;}
+  .daytype-pill small{display:block;font-size:9.5px;color:var(--ink-faint);margin-top:2px;}
+  .ex-top{display:flex;align-items:flex-start;gap:11px;padding:13px 14px;}
+  .ex-body{flex:1;min-width:0;}
+  .ex-num{flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+  .ex-meta{font-size:12px;color:var(--ink-faint);margin-top:3px;}
+  .statstrip,.streak-strip{display:flex;gap:0;margin-bottom:6px;}
+  .statbox,.streak-box{flex:1;}
+  .statbox .sv,.streak-box .sv{font-size:22px;}
+  .statbox .sl,.streak-box .sl{margin-top:2px;}
+  .asym-index-readout{display:flex;}
+  .asym-index-readout .ai-side b,.asym-index-readout .ai-gap b{display:block;}
+  .asym-index-readout .ai-side span,.asym-index-readout .ai-gap span{display:block;margin-top:3px;text-transform:uppercase;font-size:9.5px;}
+  .asym-index-date{padding:0 20px 18px;font-size:11px;color:var(--ink-faint);}
+  .chart-card svg{width:100%;height:auto;display:block;}
+  .hint{font-size:11.5px;color:var(--ink-faint);line-height:1.7;padding:6px 0 0;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div class="eyebrow">Asymmetry Protocol</div>
+    <h1 id="tb-title">今日</h1>
+    <div class="sub" id="tb-sub">W5 · Phase 2 左側力量量化</div>
+  </header>
+
+  <main id="view"></main>
+
+  <nav id="tabbar">
+    <button data-tab="today" class="active">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg><span>今日</span>
+    </button>
+    <button data-tab="calendar">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg><span>日曆</span>
+    </button>
+    <button data-tab="stats">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M2.5 20h19"/></svg><span>統計</span>
+    </button>
+    <button data-tab="library">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 4.5h5.5a2 2 0 012 2V20a1.5 1.5 0 00-1.5-1.5H5V4.5z"/><path d="M19 4.5h-5.5a2 2 0 00-2 2V20a1.5 1.5 0 011.5-1.5H19V4.5z"/></svg><span>動作庫</span>
+    </button>
+    <button data-tab="knowledge">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3a5 5 0 015 5c0 2-1 3-2 4-.6.6-1 1.3-1 2.3H10c0-1-.4-1.7-1-2.3-1-1-2-2-2-4a5 5 0 015-5z"/><path d="M10 17.5h4M10.5 20h3"/></svg><span>知識</span>
+    </button>
+    <button data-tab="tests">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 3.5h6M9 3.5v3.2c0 .5-.2 1-.5 1.4l-4 5c-1 1.2-.2 3 1.4 3h12.2c1.6 0 2.4-1.8 1.4-3l-4-5c-.3-.4-.5-.9-.5-1.4V3.5"/></svg><span>測試</span>
+    </button>
+  </nav>
+</div>
+
+<script type="module">
+import PH from './particle-human.js';
+
+/* The real 8/3 rowing test: left 27.5 kg, right 30.0 kg.
+   The figure's lean is driven by that gap against the 10% warning line the
+   app already draws on its own chart, so the visual and the chart agree. */
+const TEST = { left: 27.5, right: 30.0, date: '2026.08.03' };
+const gapPct = Math.abs(TEST.right - TEST.left) / TEST.right * 100;
+
+const VIEWS = {
+  today: () => `
+    <div class="particle-hero" id="particle-human-slot" aria-hidden="true">
+      <div class="ph-boot-mark">Asymmetry Protocol</div>
+      <div class="ph-type">
+        <div class="ph-eyebrow">W5 · Phase 2</div>
+        <div class="ph-day">休息日</div>
+      </div>
+    </div>
+
+    <div class="datenav">
+      <button class="iconbtn" aria-label="前一天"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="center">
+        <div class="dow">2026.09.04 星期五 · 今天</div>
+        <div class="dt">休息日</div>
+      </div>
+      <button class="iconbtn" aria-label="後一天"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+
+    <div class="banner warn">左腳踝的問題已經記錄 24 天。課表寫的紅旗規則是超過 10 天沒好就別再自行處理，去看骨科或物理治療師。下面的檢查框今天誠實勾一次。</div>
+
+    <div class="chipbar">
+      <span class="pill">休息</span>
+      <span class="pill">W5</span>
+      <span class="pill">Phase 2 左側力量量化</span>
+    </div>
+
+    <div class="daytype-picker">
+      <button class="daytype-pill">上肢A</button>
+      <button class="daytype-pill">上肢B</button>
+      <button class="daytype-pill">下肢</button>
+      <button class="daytype-pill">輕鬆</button>
+      <button class="daytype-pill">打波</button>
+      <button class="daytype-pill sel">休息<small>課表建議</small></button>
+    </div>
+
+    <div class="section-title">今天要做的事</div>
+    <div class="ex-card open">
+      <div class="ex-top">
+        <div class="ex-num">1</div>
+        <div class="ex-body">
+          <div class="ex-name">左腳踝紅旗檢查</div>
+          <div class="ex-meta">10 秒 · 站立 · 單腳承重比較</div>
+        </div>
+      </div>
+    </div>
+    <div class="ex-card">
+      <div class="ex-top">
+        <div class="ex-num">2</div>
+        <div class="ex-body">
+          <div class="ex-name">胸椎旋轉活動度</div>
+          <div class="ex-meta">2 組 × 8 次 / 側 · 側臥開書</div>
+        </div>
+      </div>
+    </div>
+    <div class="ex-card done">
+      <div class="ex-top">
+        <div class="ex-num">3</div>
+        <div class="ex-body">
+          <div class="ex-name">呼吸重置</div>
+          <div class="ex-meta">5 分鐘 · 仰臥 90/90</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">最近一次測試</div>
+    <div class="card">
+      <div class="lr-wrap">
+        <div class="lr-chip left"><div class="lr-label"><span class="lr-dot"></span>Left</div><div class="lr-val">${TEST.left.toFixed(1)} kg</div></div>
+        <div class="lr-chip right"><div class="lr-label"><span class="lr-dot"></span>Right</div><div class="lr-val">${TEST.right.toFixed(1)} kg</div></div>
+      </div>
+      <div class="hint">單手划船 8RM · ${TEST.date} · 左右差 ${Math.round(gapPct)}%</div>
+    </div>
+
+    <div style="height:8px"></div>
+    <button class="complete-hero">完成今天</button>
+  `,
+
+  stats: () => `
+    <div class="asym-index-card">
+      <div class="asym-index-eyebrow">不對稱指數</div>
+      <div class="particle-hero particle-hero--compact" id="particle-human-slot" aria-hidden="true"></div>
+      <div class="asym-index-readout">
+        <div class="ai-side ai-left"><b>${TEST.left.toFixed(1)}</b><span>Left · kg</span></div>
+        <div class="ai-gap"><b>${Math.round(gapPct)}%</b><span>Gap</span></div>
+        <div class="ai-side ai-right"><b>${TEST.right.toFixed(1)}</b><span>Right · kg</span></div>
+      </div>
+      <div class="asym-index-date">最近測試：${TEST.date} · 單手划船 8RM</div>
+    </div>
+
+    <div class="streak-strip">
+      <div class="streak-box"><div class="sv num">12</div><div class="sl">目前連續天數</div></div>
+      <div class="streak-box"><div class="sv num">19</div><div class="sl">最長連續紀錄</div></div>
+      <div class="streak-box"><div class="sv num">86%</div><div class="sl">整體完成率 31/36</div></div>
+    </div>
+
+    <div class="section-title">左右差趨勢</div>
+    <div class="chart-card">
+      <svg viewBox="0 0 320 120" role="img" aria-label="左右差百分比隨時間下降的折線圖">
+        <line x1="8" y1="52" x2="312" y2="52" stroke="rgba(228,103,90,.42)" stroke-width="1" stroke-dasharray="3 4"/>
+        <text x="312" y="46" text-anchor="end" font-size="8.5" fill="rgba(228,103,90,.65)" font-family="Inter Tight,sans-serif">10% 警戒線</text>
+        <polyline points="20,20 92,34 164,44 236,58 300,64" fill="none" stroke="#9B8CFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="300" cy="64" r="2.6" fill="#9B8CFF"/>
+        <text x="20" y="112" font-size="8.5" fill="rgba(255,255,255,.3)" font-family="Inter Tight,sans-serif">6/8</text>
+        <text x="300" y="112" text-anchor="end" font-size="8.5" fill="rgba(255,255,255,.3)" font-family="Inter Tight,sans-serif">8/3</text>
+      </svg>
+      <div class="hint">差距從 14% 收到 8%，已經跨過警戒線以下。粒子人的傾斜程度用的是同一個數字。</div>
+    </div>
+
+    <div class="section-title">五大狀況</div>
+    <div class="card"><div class="row"><span>左腳踝</span><span class="muted num">4 / 10 · 24 天</span></div></div>
+    <div class="card"><div class="row"><span>左後肩</span><span class="muted num">2 / 10 · 6 天</span></div></div>
+  `,
+
+  other: (name) => `
+    <div class="section-title">${name}</div>
+    <div class="card"><div class="hint">這一頁在預覽檔裡沒有做，正式網站上是原本的內容，只是換上新的樣式。</div></div>
+  `,
+};
+
+const TITLES = {
+  today:['今日','W5 · Phase 2 左側力量量化'], calendar:['日曆','2026.08.03 ～ 2026.10.25'],
+  stats:['統計','完成率、症狀趨勢、左右力量差'], library:['動作庫','48 個動作'],
+  knowledge:['知識','26 則知識卡'], tests:['測試','每 4 週一次'],
+};
+
+let tab = 'today';
+function render(){
+  const view = document.getElementById('view');
+  const html = VIEWS[tab] ? VIEWS[tab]() : VIEWS.other(TITLES[tab][0]);
+  view.innerHTML = html;
+
+  // Same hook the real app uses: one shared instance, remounted wherever the
+  // current screen has a slot for it.
+  try{
+    const slot = document.getElementById('particle-human-slot');
+    if (slot && window.ParticleHuman){
+      window.ParticleHuman.setAsymmetry(Math.min(gapPct / 10, 1));
+      window.ParticleHuman.mount(slot);
+      maybeBoot(slot);
+    }
+  }catch(e){ console.warn('[ParticleHuman]', e); }
+
+  document.getElementById('tb-title').textContent = TITLES[tab][0];
+  document.getElementById('tb-sub').textContent = TITLES[tab][1];
+  document.querySelectorAll('#tabbar button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  window.scrollTo(0,0);
+}
+
+let booted = false;
+function maybeBoot(el){
+  if (booted) return;
+  booted = true;
+  const force = location.search.indexOf('boot=1') !== -1;
+  try{ if (sessionStorage.getItem('orbitBootSeen') && !force) return; }catch(e){ return; }
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.classList.add('ph-boot');
+  const HOLD = reduced ? 300 : 3400, FADE = reduced ? 200 : 620;
+  let done = false;
+  const finish = ()=>{
+    if (done) return; done = true;
+    el.style.transition = 'opacity .6s ease';
+    el.style.opacity = '0';
+    setTimeout(()=>{
+      el.classList.remove('ph-boot');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ el.style.opacity='1'; }));
+      try{ sessionStorage.setItem('orbitBootSeen','1'); }catch(e){}
+    }, FADE);
+  };
+  el.addEventListener('click', finish, { once:true });
+  setTimeout(finish, HOLD);
+}
+
+document.querySelectorAll('#tabbar button').forEach(b=>{
+  b.addEventListener('click', ()=>{ tab = b.dataset.tab; render(); });
+});
+render();
+</script>
+</body>
+</html>
