@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>不對稱訓練系統 — 12 週計畫</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Particle Human (Step 1 prototype) — self-contained module, see /particle-human.js -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js"
+  }
+}
+</script>
+<script type="module" src="./particle-human.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg:#15171a; --bg-2:#1b1e22; --surface:#20242a; --surface-2:#282d34;
+  --paper:#efe7d6; --paper-ink:#231f19; --paper-dim:#6c6656;
+  --ink:#ece9e2; --ink-dim:#9aa1aa; --ink-faint:#5c636b;
+  --line:#33383f; --line-2:#3c424a;
+  --left:#57a0b5; --left-bg:#1e343b; --left-strong:#8fcbdc;
+  --right:#d4a04a; --right-bg:#3a2e18; --right-strong:#e8c37f;
+  --danger:#d1594c; --danger-bg:#2c1917; --danger-line:#5c2c26;
+  --ok:#6ba077; --ok-bg:#182420;
+  --lock:#6b6f76; --lock-bg:#24262a;
+  --accent:#d4a04a;
+  --know:#a98ee8; --know-bg:#241f38; --know-line:#3d3466;
+  --radius:16px; --radius-sm:10px;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei","Noto Sans TC","Heiti TC",sans-serif;
+  -webkit-font-smoothing:antialiased; line-height:1.6;
+  min-height:100vh;
+}
+button{font:inherit; color:inherit;}
+.disp{font-family:'Space Grotesk',-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;}
+h1,h2,h3,h4{font-family:'Space Grotesk',-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif; margin:0; font-weight:600;}
+.num{font-family:'Space Grotesk',-apple-system,sans-serif; font-variant-numeric:tabular-nums;}
+a{color:var(--right-strong);}
+@media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms !important; transition-duration:.001ms !important;} }
+
+#app{max-width:640px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; position:relative;}
+
+/* ---- topbar ---- */
+#topbar{
+  position:sticky; top:0; z-index:20; background:linear-gradient(180deg,var(--bg) 70%,rgba(21,23,26,0));
+  padding:18px 18px 10px;
+}
+#topbar .eyebrow{font-size:11px; letter-spacing:.14em; color:var(--ink-faint); text-transform:uppercase; font-family:'Space Grotesk',sans-serif; margin-bottom:4px;}
+#topbar h1{font-size:22px; letter-spacing:.01em;}
+#topbar .sub{font-size:13px; color:var(--ink-dim); margin-top:3px;}
+
+/* ---- main view ---- */
+#view{flex:1; padding:4px 16px calc(100px + var(--safe-b)); }
+.screen{animation:fadein .18s ease;}
+@keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+/* ---- tabbar ---- */
+#tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  max-width:640px; margin:0 auto;
+  display:flex; background:rgba(27,30,34,.94); backdrop-filter:blur(14px);
+  border-top:1px solid var(--line); padding:7px 2px calc(7px + var(--safe-b));
+}
+#tabbar button{
+  flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:5px 1px; border-radius:12px; color:var(--ink-faint); font-size:10px; letter-spacing:0;
+}
+#tabbar button .ico{width:19px; height:19px;}
+#tabbar button.active{color:var(--right-strong);}
+#tabbar button.active .ico{color:var(--right-strong);}
+
+/* ---- cards / primitives ---- */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px;}
+.card.paper{background:var(--paper); color:var(--paper-ink); border-color:#ddd2b4;}
+.card.paper .ink-dim{color:var(--paper-dim);}
+.section-title{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); font-family:'Space Grotesk',sans-serif; margin:22px 2px 10px; display:flex; align-items:center; gap:8px; justify-content:space-between;}
+.section-title:first-child{margin-top:6px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.pill{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:600; letter-spacing:.01em; font-family:'Space Grotesk',sans-serif;}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:12px 18px; border-radius:12px; border:1px solid var(--line-2); background:var(--surface-2); color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; font-family:'Space Grotesk',sans-serif;}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#241a08;}
+.btn.ghost{background:transparent;}
+.btn.danger{background:var(--danger); border-color:var(--danger); color:#2c0e0a;}
+.btn:active{transform:scale(.97);}
+.btn.block{width:100%;}
+.btn.sm{padding:8px 12px; font-size:12px; border-radius:9px;}
+.iconbtn{background:var(--surface-2); border:1px solid var(--line-2); border-radius:10px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;}
+.muted{color:var(--ink-dim);}
+.tiny{font-size:12px;}
+hr.hair{border:none; border-top:1px solid var(--line); margin:14px 0;}
+
+/* day-type badges */
+.badge-day{padding:5px 11px; border-radius:8px; font-size:12.5px; font-weight:700; font-family:'Space Grotesk',sans-serif; letter-spacing:.02em; white-space:nowrap;}
+.dt-上肢A{background:#3a2e18; color:#e8c37f;}
+.dt-上肢B{background:#3a2e18; color:#e8c37f;}
+.dt-下肢{background:#38251a; color:#e0a074;}
+.dt-輕鬆日{background:#1b2b22; color:#8fc79e;}
+.dt-打波{background:#3a1e18; color:#e8916f;}
+.dt-休息{background:#24262a; color:#9aa1aa;}
+.dt-測試日{background:#2a2038; color:#c19bea;}
+
+/* L / R chips */
+.lr-wrap{display:flex; gap:8px; margin:10px 0;}
+.lr-chip{flex:1; border-radius:11px; padding:9px 11px; border:1px solid var(--line-2);}
+.lr-chip.left{background:var(--left-bg); border-color:#2c5561;}
+.lr-chip.right{background:var(--right-bg); border-color:#5a441f;}
+.lr-chip .lr-label{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-family:'Space Grotesk',sans-serif; display:flex; align-items:center; gap:5px; margin-bottom:3px;}
+.lr-chip.left .lr-label{color:var(--left-strong);}
+.lr-chip.right .lr-label{color:var(--right-strong);}
+.lr-dot{width:7px; height:7px; border-radius:50%;}
+.lr-chip.left .lr-dot{background:var(--left-strong);}
+.lr-chip.right .lr-dot{background:var(--right-strong);}
+.lr-chip .lr-val{font-size:14px; font-weight:600;}
+
+/* red flag gate */
+.flag-card{background:var(--danger-bg); border:1px solid var(--danger-line); border-radius:var(--radius);}
+.flag-card .flag-head{padding:15px 16px 6px; display:flex; align-items:center; gap:8px;}
+.flag-card .flag-head h3{color:#f0a89e; font-size:14.5px;}
+.flag-items{padding:2px 16px 14px;}
+.flag-item{display:flex; align-items:flex-start; gap:10px; padding:8px 0; font-size:13.5px; color:#e9c9c3; border-bottom:1px dashed #4a2622;}
+.flag-item:last-child{border-bottom:none;}
+.flag-stop{margin:0 16px 15px; background:#3a1c17; border:1px solid #6b332a; border-radius:11px; padding:11px 13px; font-size:13.5px; color:#ffd9d0; font-weight:600; display:none;}
+.flag-stop.show{display:block;}
+.flag-history{margin:0 16px 14px; padding:9px 11px; background:rgba(0,0,0,.18); border-radius:9px; font-size:12px; color:#e9c9c3; line-height:1.7;}
+
+/* checkbox rows */
+.check-row{display:flex; align-items:flex-start; gap:11px; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
+.check-row:last-child{border-bottom:none;}
+.check-box{flex:none; width:22px; height:22px; border-radius:7px; border:1.6px solid var(--ink-faint); margin-top:1px; display:flex; align-items:center; justify-content:center; transition:.15s;}
+.check-box svg{opacity:0; transform:scale(.5); transition:.15s;}
+.check-row.done .check-box{background:var(--ok); border-color:var(--ok);}
+.check-row.done .check-box svg{opacity:1; transform:scale(1);}
+.check-row.done .check-label{color:var(--ink-dim); text-decoration:line-through; text-decoration-color:var(--ink-faint);}
+.check-label{font-size:14.5px; flex:1; padding-top:1px;}
+
+/* exercise card */
+.ex-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:9px; overflow:hidden;}
+.ex-card.locked{opacity:.55;}
+.ex-top{display:flex; align-items:flex-start; gap:11px; padding:13px 13px 11px; cursor:pointer;}
+.ex-num{flex:none; width:24px; height:24px; border-radius:7px; background:var(--surface-2); color:var(--ink-dim); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk',sans-serif; margin-top:1px;}
+.ex-check{flex:none; width:30px; height:30px; margin:-4px -4px -4px 0; border-radius:9px; display:flex; align-items:center; justify-content:center;}
+.ex-check .ex-check-box{width:22px; height:22px; border-radius:7px; border:1.6px solid var(--ink-faint); display:flex; align-items:center; justify-content:center; transition:.15s;}
+.ex-check svg{opacity:0; transform:scale(.5); transition:.18s cubic-bezier(.34,1.56,.64,1);}
+.ex-card.done .ex-check .ex-check-box{background:var(--ok); border-color:var(--ok); transform:scale(1.04);}
+.ex-card.done .ex-check svg{opacity:1; transform:scale(1);}
+.ex-card.done .ex-name{color:var(--ink-dim); text-decoration:line-through; text-decoration-color:var(--ink-faint);}
+.ex-body{flex:1; min-width:0;}
+.ex-name{font-size:14.5px; font-weight:600; line-height:1.4;}
+.ex-tags{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
+.tag{font-size:10.5px; padding:2px 7px; border-radius:6px; background:var(--surface-2); color:var(--ink-dim); font-family:'Space Grotesk',sans-serif; letter-spacing:.03em; cursor:default;}
+.tag.main{background:#3a2e18; color:var(--right-strong);}
+.tag.assist{background:var(--surface-2); color:var(--ink-dim);}
+.tag.reset{background:#1b2b2e; color:#8fc7c9;}
+.tag.sym{background:var(--know-bg); color:var(--know); cursor:pointer;}
+.ex-chevron{flex:none; color:var(--ink-faint); margin-top:3px; transition:transform .15s;}
+.ex-card.open .ex-chevron{transform:rotate(90deg);}
+.ex-detail{display:none; padding:0 13px 15px 48px;}
+.ex-card.open .ex-detail{display:block;}
+.ex-cue{font-size:13px; color:var(--ink-dim); line-height:1.7; margin-bottom:10px;}
+.ex-meta{font-size:12px; color:var(--ink-faint); line-height:1.8;}
+.ex-meta b{color:var(--ink-dim); font-weight:600;}
+.ex-flagline{margin-top:8px; padding:8px 10px; background:var(--danger-bg); border:1px solid var(--danger-line); border-radius:8px; font-size:12px; color:#e9b3ab;}
+.ex-anklenote{margin-top:8px; padding:8px 10px; background:#2e2412; border:1px solid #5a441f; border-radius:8px; font-size:12.5px; color:var(--right-strong);}
+.ex-lockline{margin-top:8px; padding:8px 10px; background:var(--lock-bg); border:1px solid #3a3d42; border-radius:8px; font-size:12px; color:var(--ink-dim);}
+.ex-symlink{margin-top:9px; display:flex; gap:6px; flex-wrap:wrap;}
+
+/* toggle */
+.toggle{position:relative; width:44px; height:26px; border-radius:99px; background:var(--surface-2); border:1px solid var(--line-2); flex:none; cursor:pointer;}
+.toggle .knob{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--ink-dim); transition:.18s;}
+.toggle.on{background:#4a3b1c; border-color:var(--right);}
+.toggle.on .knob{left:20px; background:var(--right-strong);}
+
+/* form fields */
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; color:var(--ink-dim); margin-bottom:7px; font-weight:600;}
+.field input[type=number],.field input[type=text],.field select,.field textarea{
+  width:100%; background:var(--surface-2); border:1px solid var(--line-2); border-radius:10px; color:var(--ink);
+  padding:11px 12px; font-size:15px; font-family:inherit;
+}
+.field textarea{resize:vertical; min-height:56px;}
+.field .hint{font-size:11.5px; color:var(--ink-faint); margin-top:5px;}
+.seg{display:flex; gap:7px; flex-wrap:wrap;}
+.seg button{flex:1; min-width:44px; padding:10px 8px; border-radius:10px; border:1px solid var(--line-2); background:var(--surface-2); color:var(--ink-dim); font-size:13px; font-weight:600;}
+.seg button.sel{background:var(--accent); border-color:var(--accent); color:#241a08;}
+.scoreband{display:flex; gap:4px;}
+.scoreband button{flex:1; aspect-ratio:1; border-radius:7px; border:1px solid var(--line-2); background:var(--surface-2); color:var(--ink-dim); font-size:12px; font-family:'Space Grotesk',sans-serif; font-weight:600; padding:0; min-width:0;}
+.scoreband button.sel{background:var(--danger); border-color:var(--danger); color:#fff;}
+
+/* date nav */
+.datenav{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+.datenav .center{flex:1; text-align:center;}
+.datenav .dow{font-size:12px; color:var(--ink-faint);}
+.datenav .dt{font-size:16px; font-weight:700; font-family:'Space Grotesk',sans-serif; margin-top:1px;}
+.today-jump{text-align:center; margin:-2px 0 12px;}
+.today-jump button{background:none;border:none;color:var(--right-strong);font-size:12.5px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}
+
+/* day type picker (the freedom-to-choose control) */
+.daytype-picker{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 6px; margin-bottom:2px; -ms-overflow-style:none; scrollbar-width:none;}
+.daytype-picker::-webkit-scrollbar{display:none;}
+.daytype-pill{flex:none; position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; padding:9px 15px; border-radius:13px; border:1.5px solid var(--line-2); background:var(--surface); color:var(--ink-dim); cursor:pointer;}
+.daytype-pill .dtp-name{font-size:13px; font-weight:700; font-family:'Space Grotesk',sans-serif; white-space:nowrap;}
+.daytype-pill .dtp-plan{font-size:9px; color:var(--ink-faint); letter-spacing:.02em;}
+.daytype-pill.sel{border-color:var(--accent); background:#3a2e18; color:var(--right-strong);}
+.daytype-pill.sel .dtp-plan{color:var(--right-strong); opacity:.85;}
+.daytype-pill .dtp-dot{position:absolute; top:6px; right:7px; width:5px; height:5px; border-radius:50%; background:var(--right-strong);}
+.override-note{display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface); border:1px dashed var(--line-2); border-radius:11px; padding:10px 13px; font-size:12.5px; color:var(--ink-dim); margin-bottom:14px;}
+.override-note button{background:none;border:none;color:var(--right-strong);font-size:12px;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer;flex:none; padding:2px;}
+
+/* one-tap complete hero button */
+.complete-hero{width:100%; border:none; border-radius:16px; padding:16px; background:linear-gradient(135deg,#79b389,#5a9169); color:#0c1f11; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; gap:9px; cursor:pointer; margin-bottom:14px; box-shadow:0 8px 22px rgba(107,160,119,.28);}
+.complete-hero .ch-ico{width:21px; height:21px; flex:none; transition:transform .32s cubic-bezier(.34,1.56,.64,1);}
+.complete-hero.done{background:var(--surface-2); color:var(--ink-dim); box-shadow:none; border:1px solid var(--line-2);}
+.complete-hero:active{transform:scale(.98);}
+.complete-hero.pulse .ch-ico{transform:scale(1.35) rotate(-8deg);}
+
+/* tip / insight banner pulled from knowledge base */
+.tip-card{display:flex; gap:10px; background:var(--know-bg); border:1px solid var(--know-line); border-radius:13px; padding:12px 13px; margin-bottom:14px; font-size:13px; color:#cabdf0; line-height:1.7;}
+.tip-card .tip-ico{flex:none; margin-top:2px; color:var(--know);}
+.tip-card b{color:#e2d6ff;}
+.tip-card.amber{background:#2e2412; border-color:#5a441f; color:var(--right-strong);}
+.tip-card.amber b{color:#f5d99a;}
+.tip-card.amber .tip-ico{color:var(--right-strong);}
+.tip-card .tip-link{display:block; margin-top:6px; font-size:12px; text-decoration:underline; text-underline-offset:2px; cursor:pointer; color:inherit; opacity:.85;}
+
+/* progress bar */
+.progress-wrap{height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden; margin:4px 0 2px;}
+.progress-bar{height:100%; background:var(--accent); border-radius:99px; transition:width .3s ease;}
+
+/* calendar */
+.week-block{margin-bottom:18px;}
+.week-head{display:flex; align-items:center; justify-content:space-between; padding:0 2px 9px;}
+.week-head .wname{font-size:14px; font-weight:700; font-family:'Space Grotesk',sans-serif;}
+.week-head .wphase{font-size:11px; color:var(--ink-faint);}
+.day-list{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); overflow:hidden;}
+.day-item{display:flex; align-items:center; gap:11px; padding:11px 13px; border-bottom:1px solid var(--line); cursor:pointer;}
+.day-item:last-child{border-bottom:none;}
+.day-item.istoday{background:rgba(212,160,74,.08);}
+.day-item .ddate{width:44px; flex:none;}
+.day-item .ddate .dnum{font-size:16px; font-weight:700; font-family:'Space Grotesk',sans-serif;}
+.day-item .ddate .ddow{font-size:10.5px; color:var(--ink-faint);}
+.day-item .dinfo{flex:1; min-width:0;}
+.day-item .dnote{font-size:11.5px; color:var(--ink-faint); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.day-item .dswap{font-size:10.5px; color:var(--right-strong); margin-top:3px;}
+.day-item .dstatus{flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1.6px solid var(--line-2); cursor:pointer; transition:transform .12s ease;}
+.day-item .dstatus:active{transform:scale(.86);}
+.day-item .dstatus.done{background:var(--ok); border-color:var(--ok);}
+.day-item .dstatus.future{border-style:dashed; opacity:.5;}
+
+/* library / knowledge filters */
+.chipbar{display:flex; gap:7px; overflow-x:auto; padding:2px 2px 14px; -ms-overflow-style:none; scrollbar-width:none;}
+.chipbar::-webkit-scrollbar{display:none;}
+.chip{flex:none; padding:8px 14px; border-radius:99px; border:1px solid var(--line-2); background:var(--surface-2); color:var(--ink-dim); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;}
+.chip.sel{background:var(--accent); border-color:var(--accent); color:#241a08;}
+.chip.sel.know{background:var(--know); border-color:var(--know); color:#1b1530;}
+.searchbox{width:100%; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:11px 14px; color:var(--ink); font-size:14px; margin-bottom:12px;}
+.searchbox::placeholder{color:var(--ink-faint);}
+
+/* guide / reference tables */
+.def-table{width:100%; border-collapse:collapse; font-size:13px;}
+.def-table td{padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.65;}
+.def-table td:first-child{color:var(--right-strong); font-weight:700; white-space:nowrap; width:30%; font-family:'Space Grotesk',sans-serif;}
+.def-table tr:last-child td{border-bottom:none;}
+details.rationale{border-bottom:1px solid var(--line); padding:12px 0;}
+details.rationale:last-child{border-bottom:none;}
+details.rationale summary{font-size:13.5px; font-weight:600; cursor:pointer; color:var(--ink);}
+details.rationale summary::marker{color:var(--right-strong);}
+details.rationale .rbody{font-size:13px; color:var(--ink-dim); line-height:1.8; margin-top:9px;}
+.redflag-list{list-style:none; margin:0; padding:0;}
+.redflag-list li{padding:8px 0 8px 20px; position:relative; font-size:13.5px; line-height:1.6; border-bottom:1px dashed var(--danger-line);}
+.redflag-list li:last-child{border-bottom:none;}
+.redflag-list li::before{content:"⚑"; position:absolute; left:0; top:8px; color:var(--danger); font-size:12px;}
+.cut-table{width:100%; border-collapse:collapse; font-size:13px;}
+.cut-table td{padding:9px 6px; border-bottom:1px solid var(--line);}
+.cut-table td:first-child{width:28px; color:var(--ink-faint); font-family:'Space Grotesk',sans-serif; font-weight:700;}
+
+/* stat strip */
+.statstrip{display:flex; gap:10px; margin-bottom:16px;}
+.statbox{flex:1; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; text-align:center;}
+.statbox .sval{font-size:22px; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--right-strong);}
+.statbox .slabel{font-size:10.5px; color:var(--ink-faint); margin-top:2px; letter-spacing:.03em;}
+
+.banner{padding:11px 13px; border-radius:11px; font-size:13px; margin-bottom:14px; display:flex; gap:9px; align-items:flex-start;}
+.banner.deload{background:#1e2a38; border:1px solid #2c4560; color:#a9c6e8;}
+.banner.done{background:var(--ok-bg); border:1px solid #2c4a37; color:#b6dcc0;}
+.banner.warn{background:var(--danger-bg); border:1px solid var(--danger-line); color:#f0b3ab;}
+
+.trend-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px;}
+.trend-row:last-child{border-bottom:none;}
+.trend-row .tlabel{width:110px; flex:none; color:var(--ink-dim);}
+.trend-row .tvals{flex:1; display:flex; gap:8px; flex-wrap:wrap;}
+.trend-row .tv{background:var(--surface-2); padding:3px 9px; border-radius:7px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12.5px;}
+.arrow-ok{color:var(--ok);} .arrow-bad{color:var(--danger);}
+
+/* streak strip */
+.streak-strip{display:flex; gap:10px; margin-bottom:14px;}
+.streak-box{flex:1; background:linear-gradient(160deg,var(--surface),var(--surface-2)); border:1px solid var(--line); border-radius:13px; padding:13px; text-align:center;}
+.streak-box .sv{font-size:23px; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--right-strong); display:flex; align-items:center; justify-content:center; gap:4px;}
+.streak-box .sl{font-size:10.5px; color:var(--ink-faint); margin-top:3px;}
+
+/* symptom overview grid */
+.sym-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:4px;}
+.sym-card{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:12px 13px; cursor:pointer;}
+.sym-card .sc-top{display:flex; justify-content:space-between; align-items:flex-start; gap:6px;}
+.sym-card .sc-code{font-size:10px; letter-spacing:.08em; color:var(--ink-faint); font-family:'Space Grotesk',sans-serif; text-transform:uppercase;}
+.sym-card .sc-status{font-size:9px; padding:2px 6px; border-radius:5px; white-space:nowrap; font-weight:600;}
+.sym-card .sc-status.st-ok{background:var(--ok-bg);color:var(--ok);}
+.sym-card .sc-status.st-watch{background:#3a2e18;color:var(--right-strong);}
+.sym-card .sc-status.st-neutral{background:var(--surface-2);color:var(--ink-dim);}
+.sym-card .sc-name{font-size:12.5px; font-weight:600; margin:6px 0 8px; line-height:1.4; min-height:32px;}
+.sym-card .sc-score{display:flex; align-items:baseline; gap:6px;}
+.sym-card .sc-score .num{font-size:23px; font-weight:700; font-family:'Space Grotesk',sans-serif;}
+.sym-card .sc-score .unit{font-size:10.5px; color:var(--ink-faint);}
+.sym-card .sc-score .trend{font-size:11px; font-weight:600;}
+.sym-card .sc-date{font-size:10px; color:var(--ink-faint); margin-top:2px;}
+
+/* charts */
+.chart-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:15px 14px 12px; margin-bottom:12px;}
+.chart-legend{display:flex; gap:12px; flex-wrap:wrap; margin-top:6px; padding-top:10px; border-top:1px solid var(--line);}
+.chart-legend .lg-item{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-dim);}
+.chart-legend .lg-dot{width:8px;height:8px;border-radius:50%; flex:none;}
+.bar-chart-row{display:flex; align-items:center; gap:9px; padding:6px 0;}
+.bar-chart-row .bcr-label{width:66px; flex:none; font-size:11.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.bar-chart-row .bcr-track{flex:1; height:9px; background:var(--surface-2); border-radius:99px; overflow:hidden;}
+.bar-chart-row .bcr-fill{height:100%; border-radius:99px; transition:width .3s ease;}
+.bar-chart-row .bcr-val{width:44px; flex:none; text-align:right; font-size:11.5px; font-family:'Space Grotesk',sans-serif; font-weight:600; color:var(--ink-dim);}
+.chart-empty{text-align:center; color:var(--ink-faint); font-size:12.5px; padding:18px 0;}
+
+/* knowledge cards */
+.km-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); padding:14px 15px; margin-bottom:10px;}
+.km-title{font-size:14px; font-weight:700; line-height:1.5; margin-bottom:8px;}
+.km-badges{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:9px;}
+.km-badge{font-size:9.5px; padding:2.5px 7px; border-radius:6px; font-family:'Space Grotesk',sans-serif; letter-spacing:.02em; white-space:nowrap; font-weight:600;}
+.km-badge.st-現行採用{background:var(--ok-bg); color:var(--ok);}
+.km-badge.st-已清零{background:#1e2a38; color:#8fb8e8;}
+.km-badge.st-觀察中{background:#3a2e18; color:var(--right-strong);}
+.km-badge.st-已完成{background:var(--surface-2); color:var(--ink-dim);}
+.km-badge.st-已修正{background:var(--danger-bg); color:#e9b3ab;}
+.km-badge.evi{background:var(--surface-2); color:var(--ink-faint);}
+.km-badge.cat{background:var(--know-bg); color:var(--know);}
+.km-body{font-size:13.3px; color:var(--ink-dim); line-height:1.85; white-space:pre-line;}
+.km-foot{display:flex; justify-content:space-between; gap:8px; margin-top:10px; padding-top:9px; border-top:1px solid var(--line); font-size:10.5px; color:var(--ink-faint);}
+
+/* symptom snapshot (compact, used inline in knowledge tab) */
+.snap-row{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
+.snap-row:last-child{border-bottom:none;}
+.snap-row .snap-code{width:26px; flex:none; text-align:center; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--right-strong);}
+.snap-row .snap-name{flex:1; font-size:13px;}
+.snap-row .snap-val{font-size:12px; color:var(--ink-faint);}
+
+/* backup / data area */
+.backup-area textarea{width:100%; min-height:84px; background:var(--surface-2); border:1px solid var(--line-2); border-radius:10px; color:var(--ink); font-size:11px; font-family:'Space Grotesk',monospace; padding:10px; resize:vertical;}
+.sync-area input[type=text],.sync-area input[type=password]{width:100%; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--line-2); border-radius:10px; color:var(--ink); font-size:13px; padding:10px 12px; margin-bottom:8px; font-family:'Space Grotesk',monospace;}
+.sync-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px;}
+.sync-dot.ok{background:var(--ok);} .sync-dot.pending{background:var(--right);} .sync-dot.off{background:var(--ink-faint);} .sync-dot.err{background:var(--danger);}
+.backup-row{display:flex; gap:8px; margin-top:9px;}
+.backup-row .btn{flex:1;}
+.copy-flash{color:var(--ok); font-size:12px; margin-top:7px; display:none;}
+.copy-flash.show{display:block;}
+
+.footer-note{text-align:center; color:var(--ink-faint); font-size:11.5px; padding:18px 10px 6px; line-height:1.7;}
+
+/* particle human hero (Step 1 prototype) — canvas is injected into this by /effects/particle-human.js */
+.particle-hero{
+  position:relative;
+  height:clamp(180px, 40vw, 240px);
+  border-radius:var(--radius);
+  overflow:hidden;
+  margin-bottom:14px;
+  background:
+    radial-gradient(60% 70% at 50% 38%, rgba(66,245,167,.05), transparent 70%),
+    #0A0A0C;
+  border:1px solid rgba(66,245,167,.08);
+  isolation:isolate;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="eyebrow disp" id="tb-eyebrow">ASYMMETRY PROTOCOL</div>
+    <h1 id="tb-title">今日訓練</h1>
+    <div class="sub" id="tb-sub"></div>
+  </header>
+  <main id="view"><div class="screen" style="padding:40px 0;text-align:center;color:var(--ink-faint)">載入中…</div></main>
+  <nav id="tabbar">
+    <button data-tab="today" class="active">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+      <span>今日</span>
+    </button>
+    <button data-tab="calendar">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
+      <span>日曆</span>
+    </button>
+    <button data-tab="stats">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M2.5 20h19"/></svg>
+      <span>統計</span>
+    </button>
+    <button data-tab="library">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4.5h5.5a2 2 0 012 2V20a1.5 1.5 0 00-1.5-1.5H5V4.5z"/><path d="M19 4.5h-5.5a2 2 0 00-2 2V20a1.5 1.5 0 011.5-1.5H19V4.5z"/></svg>
+      <span>動作庫</span>
+    </button>
+    <button data-tab="knowledge">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a5 5 0 015 5c0 2-1 3-2 4-.6.6-1 1.3-1 2.3H10c0-1-.4-1.7-1-2.3-1-1-2-2-2-4a5 5 0 015-5z"/><path d="M10 17.5h4M10.5 20h3"/></svg>
+      <span>知識</span>
+    </button>
+    <button data-tab="tests">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3.5h6M9 3.5v3.2c0 .5-.2 1-.5 1.4l-4 5c-1 1.2-.2 3 1.4 3h12.2c1.6 0 2.4-1.8 1.4-3l-4-5c-.3-.4-.5-.9-.5-1.4V3.5"/></svg>
+      <span>測試</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+/* ================= data (injected at build time) ================= */
+const EXERCISES = [{"課表日": "上肢A", "順序": 1, "動作名稱": "定點放鬆：右腹股溝、右後背夾縫、左小腿外側", "類別": "重設", "左邊": "各 30 秒", "右邊": "各 30 秒", "起始設定": "球或徒手", "呼吸": "自然", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 準備", "對應狀況": "A,D", "執行要點": "左腋下大圓肌不要按——那裡是要練不是要放鬆", "進階條件": "時間不加長，這是暖身不是治療", "退階／紅旗": "按到刺痛即停"}, {"課表日": "上肢A", "順序": 2, "動作名稱": "不對稱貓牛式（左掌前移半掌）", "類別": "重設", "左邊": "4 組 × 8 呼吸", "右邊": "—", "起始設定": "徒手", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "A,B", "執行要點": "左掌根用力推地拱背，不聳肩，專注左腋下發力；空氣灌進右後背", "進階條件": "連續2週頂點無代償 → 手掌再前移2cm", "退階／紅旗": "肋骨刺痛或頭暈即停"}, {"課表日": "上肢A", "順序": 3, "動作名稱": "優化版仰躺椅子 90/90 呼吸（右腳踩高半掌）", "類別": "重設", "左邊": "5 呼吸 × 5 組", "右邊": "—", "起始設定": "膝夾毛巾、尾骨微離地", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "右腳比左腳踩高半個腳掌，左腰死貼地、右腰微離地。100% 不做反向", "進階條件": "呼吸全程順暢 → 膝間夾力加重", "退階／紅旗": "腰部代償拱起即降低墊高"}, {"課表日": "上肢A", "順序": 4, "動作名稱": "左側躺左腿內收抬高（下方腿抬起）", "類別": "重設", "左邊": "4-5 組 × 12-15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "左側躺，左腿在下伸直，右腿在上屈膝踩地。主動收縮左內收肌把下方腿抬向天花板", "進階條件": "W5 起腳踝加 1-2kg 沙包", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "上肢A", "順序": 5, "動作名稱": "靠牆滑行 + 頂點前伸", "類別": "重設", "左邊": "2 組 × 8", "右邊": "雙側", "起始設定": "徒手", "呼吸": "上滑時吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A,左後肩", "執行要點": "背貼牆、肋骨下沉不外翻，雙手沿牆上滑，頂點主動往前推出1cm。這是治左後肩酸的正解", "進階條件": "靠牆滑行測試轉陰性 → 進 Phase 2", "退階／紅旗": "出現麻／電／針點痛即停"}, {"課表日": "上肢A", "順序": 6, "動作名稱": "半跪姿單臂地雷管推舉", "類別": "主項", "左邊": "4-5 組 × 10-12", "右邊": "4 組 × 10-12", "起始設定": "20kg空棍 + 1.25kg片", "呼吸": "常規順呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A", "執行要點": "推到頂端讓左肩胛順勢前伸1cm。負重動作全部取消憋氣", "進階條件": "連續2次課表都輕鬆完成 → 加最小片（每2週最多加1次）", "退階／紅旗": "肩前夾擠感或麻感即退重量"}, {"課表日": "上肢A", "順序": 7, "動作名稱": "單臂 Cable 高位下壓推胸（左腳在前）", "類別": "主項", "左邊": "4 組 × 12", "右邊": "3 組 × 12", "起始設定": "滑輪頭部高度", "呼吸": "下推慢吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A", "執行要點": "左腳在前、右手叉腰。下推到底身體微左轉、左肋骨下沉", "進階條件": "動作全程左肋不上飄 → 加重", "退階／紅旗": "左肋上飄即減重"}, {"課表日": "上肢A", "順序": 8, "動作名稱": "過頂階梯（目前第 1 階：單臂啞鈴過頂支撐）", "類別": "主項", "左邊": "3 組 × 30 秒", "右邊": "2 組 × 30 秒", "起始設定": "啞鈴 4-6kg", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M3 過頂階梯", "對應狀況": "B", "執行要點": "站姿舉高不動，手肘鎖直，肋骨不准外翻。神經症狀清零才解封", "進階條件": "見指南「過頂階梯」表：做滿2週且全程無麻 → 進第2階", "退階／紅旗": "出現任何麻感 → 立刻退回上一階"}, {"課表日": "上肢A", "順序": 9, "動作名稱": "側躺外旋（後旋轉肌耐力）", "類別": "副項", "左邊": "3 組 × 15-20", "右邊": "2 組 × 15", "起始設定": "啞鈴 2-4kg", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M4 後肩耐力", "對應狀況": "左後肩", "執行要點": "輕重量純耐力。這是 EAST 三分鐘那個酸的直接解方，不是按摩球", "進階條件": "20下輕鬆 → 加1kg", "退階／紅旗": "肩後針點痛即停"}, {"課表日": "上肢A", "順序": 10, "動作名稱": "雙手高背杯式箱深蹲", "類別": "副項", "左邊": "4 組 × 10", "右邊": "雙側", "起始設定": "啞鈴前捧", "呼吸": "常規", "左腳踝有事時": "改坐姿腿推 4 組 × 10", "階段": "全期", "模組": "M5 下肢", "對應狀況": "C", "執行要點": "箱子拉近，下蹲時雙腳大拇指掌根死死壓進地面，防止前腳掌起飛", "進階條件": "動作乾淨 → 加重", "退階／紅旗": "重心後移到腳跟即停"}, {"課表日": "上肢A", "順序": 11, "動作名稱": "單邊農夫行走（右手提重）", "類別": "副項", "左邊": "—", "右邊": "3 組 × 30 秒", "起始設定": "啞鈴 16-24kg", "呼吸": "自然呼吸", "左腳踝有事時": "暫停（單邊負重走路考驗踝穩定）", "階段": "全期", "模組": "M5 下肢", "對應狀況": "D", "執行要點": "只有右手提重，抗左側屈。對右骨盆下掉是直接反向訓練", "進階條件": "30秒無晃動 → 加重", "退階／紅旗": "腰側代償或踝痛即停"}, {"課表日": "上肢B", "順序": 1, "動作名稱": "定點放鬆：右腹股溝、右後背夾縫、左小腿外側", "類別": "重設", "左邊": "各 30 秒", "右邊": "各 30 秒", "起始設定": "球或徒手", "呼吸": "自然", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 準備", "對應狀況": "A,D", "執行要點": "左腋下大圓肌不要按——那裡是要練不是要放鬆", "進階條件": "時間不加長，這是暖身不是治療", "退階／紅旗": "按到刺痛即停"}, {"課表日": "上肢B", "順序": 2, "動作名稱": "不對稱貓牛式（左掌前移半掌）", "類別": "重設", "左邊": "4 組 × 8 呼吸", "右邊": "—", "起始設定": "徒手", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "A,B", "執行要點": "左掌根用力推地拱背，不聳肩，專注左腋下發力；空氣灌進右後背", "進階條件": "連續2週頂點無代償 → 手掌再前移2cm", "退階／紅旗": "肋骨刺痛或頭暈即停"}, {"課表日": "上肢B", "順序": 3, "動作名稱": "優化版仰躺椅子 90/90 呼吸（右腳踩高半掌）", "類別": "重設", "左邊": "5 呼吸 × 5 組", "右邊": "—", "起始設定": "膝夾毛巾、尾骨微離地", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "右腳比左腳踩高半個腳掌，左腰死貼地、右腰微離地。100% 不做反向", "進階條件": "呼吸全程順暢 → 膝間夾力加重", "退階／紅旗": "腰部代償拱起即降低墊高"}, {"課表日": "上肢B", "順序": 4, "動作名稱": "左側躺左腿內收抬高（下方腿抬起）", "類別": "重設", "左邊": "4-5 組 × 12-15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "左側躺，左腿在下伸直，右腿在上屈膝踩地。主動收縮左內收肌把下方腿抬向天花板", "進階條件": "W5 起腳踝加 1-2kg 沙包", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "上肢B", "順序": 5, "動作名稱": "靠牆滑行 + 頂點前伸", "類別": "重設", "左邊": "2 組 × 8", "右邊": "雙側", "起始設定": "徒手", "呼吸": "上滑時吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A,左後肩", "執行要點": "背貼牆、肋骨下沉不外翻，雙手沿牆上滑，頂點主動往前推出1cm。這是治左後肩酸的正解", "進階條件": "靠牆滑行測試轉陰性 → 進 Phase 2", "退階／紅旗": "出現麻／電／針點痛即停"}, {"課表日": "上肢B", "順序": 6, "動作名稱": "M-Torture 垂直下拉（單手直握，右腳在前）", "類別": "主項", "左邊": "4-5 組 × 10-12", "右邊": "3 組 × 10", "起始設定": "中等重量", "呼吸": "倒轉呼吸（離心吐6／向心吸4）", "左腳踝有事時": "照做", "階段": "全期", "模組": "M7 左側拉系列", "對應狀況": "A", "執行要點": "左手放回時慢吐6秒、肋骨下沉死貼肩胛；拉回時吸氣4秒灌爆右後背", "進階條件": "技術性力竭前能做滿12下 → 加重", "退階／紅旗": "肩胛飛出或代償聳肩即減重"}, {"課表日": "上肢B", "順序": 7, "動作名稱": "Adjustable Low Pulley 坐姿划船（單手直握）", "類別": "主項", "左邊": "4-5 組 × 12", "右邊": "3 組 × 12", "起始設定": "滑輪胸口高度", "呼吸": "倒轉呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M7 左側拉系列", "對應狀況": "A", "執行要點": "左腳踩深在前、右腳微縮在後", "進階條件": "同上", "退階／紅旗": "腰代償後仰即減重"}, {"課表日": "上肢B", "順序": 8, "動作名稱": "Stephen Curry 三點支撐啞鈴划船（Bench 版）", "類別": "主項", "左邊": "4 組 × 10", "右邊": "3 組 × 10", "起始設定": "啞鈴", "呼吸": "倒轉呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M7 左側拉系列", "對應狀況": "A", "執行要點": "右手右膝跪 Bench，左腳往後凌空打直、左膝微離 Bench 1公分不承重", "進階條件": "同上", "退階／紅旗": "軀幹轉動即減重"}, {"課表日": "上肢B", "順序": 9, "動作名稱": "Cable 單臂側向直臂下壓", "類別": "副項", "左邊": "3 組 × 12", "右邊": "2 組 × 12", "起始設定": "最高位 Cable 單手D把", "呼吸": "壓到底深吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A", "執行要點": "側對滑輪，壓到底扣死左下肋骨", "進階條件": "動作乾淨 → 加重", "退階／紅旗": "肋骨扣不住即減重"}, {"課表日": "上肢B", "順序": 10, "動作名稱": "固定後踢屁股機", "類別": "副項", "左邊": "3 組 × 10", "右邊": "5 組 × 10", "起始設定": "中等重量", "呼吸": "常規", "左腳踝有事時": "照做", "階段": "全期", "模組": "M5 下肢", "對應狀況": "D", "執行要點": "核心收緊、下沉肋骨、嚴禁折腰。右側刻意多做", "進階條件": "同上", "退階／紅旗": "折腰即減重"}, {"課表日": "上肢B", "順序": 11, "動作名稱": "【Phase 2 才解封】斜板俯臥 Y", "類別": "副項", "左邊": "3 組 × 12-15", "右邊": "2 組 × 12-15", "起始設定": "1-3kg", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "Phase 2 起", "模組": "M4 後肩耐力", "對應狀況": "左後肩", "執行要點": "胸口靠30-45°斜板，下巴微收、肋骨壓下。靠牆滑行測試轉陰性前一下都不做", "進階條件": "靠牆滑行「左肋外翻」轉否才解封", "退階／紅旗": "肋骨外翻即停"}, {"課表日": "上肢B", "順序": 12, "動作名稱": "【Phase 2 才解封】坐姿 Face Pull（肋骨下沉版）", "類別": "副項", "左邊": "3 組 × 15", "右邊": "雙側", "起始設定": "輕阻力", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "Phase 2 起", "模組": "M4 後肩耐力", "對應狀況": "左後肩", "執行要點": "坐姿、輕阻力、不挺胸。同上，Phase 1 一下都不做", "進階條件": "同上", "退階／紅旗": "聳肩即減重"}, {"課表日": "下肢", "順序": 1, "動作名稱": "定點放鬆：右腹股溝、右後背夾縫、左小腿外側", "類別": "重設", "左邊": "各 30 秒", "右邊": "各 30 秒", "起始設定": "球或徒手", "呼吸": "自然", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 準備", "對應狀況": "A,D", "執行要點": "左腋下大圓肌不要按——那裡是要練不是要放鬆", "進階條件": "時間不加長，這是暖身不是治療", "退階／紅旗": "按到刺痛即停"}, {"課表日": "下肢", "順序": 2, "動作名稱": "不對稱貓牛式（左掌前移半掌）", "類別": "重設", "左邊": "4 組 × 8 呼吸", "右邊": "—", "起始設定": "徒手", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "A,B", "執行要點": "左掌根用力推地拱背，不聳肩，專注左腋下發力；空氣灌進右後背", "進階條件": "連續2週頂點無代償 → 手掌再前移2cm", "退階／紅旗": "肋骨刺痛或頭暈即停"}, {"課表日": "下肢", "順序": 3, "動作名稱": "優化版仰躺椅子 90/90 呼吸（右腳踩高半掌）", "類別": "重設", "左邊": "5 呼吸 × 5 組", "右邊": "—", "起始設定": "膝夾毛巾、尾骨微離地", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "右腳比左腳踩高半個腳掌，左腰死貼地、右腰微離地。100% 不做反向", "進階條件": "呼吸全程順暢 → 膝間夾力加重", "退階／紅旗": "腰部代償拱起即降低墊高"}, {"課表日": "下肢", "順序": 4, "動作名稱": "左側躺左腿內收抬高（下方腿抬起）", "類別": "重設", "左邊": "4-5 組 × 12-15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "左側躺，左腿在下伸直，右腿在上屈膝踩地。主動收縮左內收肌把下方腿抬向天花板", "進階條件": "W5 起腳踝加 1-2kg 沙包", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "下肢", "順序": 5, "動作名稱": "靠牆滑行 + 頂點前伸", "類別": "重設", "左邊": "2 組 × 8", "右邊": "雙側", "起始設定": "徒手", "呼吸": "上滑時吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A,左後肩", "執行要點": "背貼牆、肋骨下沉不外翻，雙手沿牆上滑，頂點主動往前推出1cm。這是治左後肩酸的正解", "進階條件": "靠牆滑行測試轉陰性 → 進 Phase 2", "退階／紅旗": "出現麻／電／針點痛即停"}, {"課表日": "下肢", "順序": 6, "動作名稱": "負重保加利亞單腿蹲（扶牆版）", "類別": "主項", "左邊": "左腳在前 3 組 × 8-10", "右邊": "右腳在前 4 組 × 8-10", "起始設定": "啞鈴 6-8kg 起", "呼吸": "常規", "左腳踝有事時": "左腳在後那組（＝右腳在前）暫停，後踝要蹠屈頂地", "階段": "全期", "模組": "M5 下肢", "對應狀況": "C,D", "執行要點": "後腳踩15-20cm矮凳。右腳在前時右手必須碰牆／槓架提供外在穩定，鎖死右膝內扣", "進階條件": "8-10下乾淨 → 加2kg", "退階／紅旗": "膝內扣或髕腱痛即停"}, {"課表日": "下肢", "順序": 7, "動作名稱": "北歐腿彎舉（Nordic，純離心）", "類別": "主項", "左邊": "3 組 × 5-6", "右邊": "雙側", "起始設定": "彈力帶輔助或雙手推地", "呼吸": "常規", "左腳踝有事時": "照做（不涉及踝）", "階段": "全期", "模組": "M5 下肢", "對應狀況": "C", "執行要點": "全套系統裡傷害預防價值最高的單一動作（多篇 meta-analysis 顯示腿後肌拉傷約降五成）", "進階條件": "能控制到更低角度 → 減少輔助", "退階／紅旗": "腿後抽筋或急性痛即停"}, {"課表日": "下肢", "順序": 8, "動作名稱": "單腳橋式（左腳）★新增", "類別": "主項", "左邊": "3 組 × 12", "右邊": "右 2 組 × 12", "起始設定": "徒手起", "呼吸": "頂點吐氣", "左腳踝有事時": "照做（不涉及踝）", "階段": "全期", "模組": "M8 主動髖伸展", "對應狀況": "C", "執行要點": "仰躺屈膝，用左臀主動把骨盆推起，肋骨不上飄、不折腰。這是針對「左髖伸展不足→力量砸在髕腱」的直接補洞", "進階條件": "頂點能停3秒不抖 → 改單腳且腳墊高", "退階／紅旗": "腿後抽筋即降低幅度"}, {"課表日": "下肢", "順序": 9, "動作名稱": "啞鈴前後腳 RDL（右腳在前、左手持鈴）", "類別": "主項", "左邊": "5 組 × 10", "右邊": "只做這單邊", "起始設定": "啞鈴（拒用 Cable）", "呼吸": "常規", "左腳踝有事時": "照做，痛就停", "階段": "全期", "模組": "M8 主動髖伸展", "對應狀況": "C,E", "執行要點": "微屈膝屁股後推，頂點軀幹站直即立刻停止，絕不前頂骨盆或挺胸夾臀（防誘發左肋外翻）", "進階條件": "10下乾淨 → 加重", "退階／紅旗": "腰先彎即減重"}, {"課表日": "下肢", "順序": 10, "動作名稱": "站姿負重提踵", "類別": "副項", "左邊": "4 組 × 12", "右邊": "雙側", "起始設定": "慢下 3 秒", "呼吸": "常規", "左腳踝有事時": "暫停（末端蹠屈正是誘發位置）", "階段": "全期", "模組": "M9 小腿與足底", "對應狀況": "左小腿", "執行要點": "揉捏改變的是幾小時的症狀，這個改變的是組織容量", "進階條件": "12下輕鬆 → 加重", "退階／紅旗": "踝外側痛即停"}, {"課表日": "下肢", "順序": 11, "動作名稱": "比目魚肌等長（牆邊屈膝 45 秒）", "類別": "副項", "左邊": "3 組", "右邊": "雙側", "起始設定": "屈膝約45度", "呼吸": "自然呼吸", "左腳踝有事時": "只做到不痛的角度", "階段": "全期", "模組": "M9 小腿與足底", "對應狀況": "左小腿", "執行要點": "屈膝版才練得到比目魚肌，直膝版練的是腓腸肌", "進階條件": "45秒輕鬆 → 加負重", "退階／紅旗": "踝痛即縮小角度"}, {"課表日": "下肢", "順序": 12, "動作名稱": "腳趾屈肌／短足（提踵時腳趾下墊毛巾）", "類別": "副項", "左邊": "3 組 × 15", "右邊": "雙側", "起始設定": "毛巾捲起墊腳趾下", "呼吸": "自然呼吸", "左腳踝有事時": "照做，不痛就繼續", "階段": "全期", "模組": "M9 小腿與足底", "對應狀況": "左小腿", "執行要點": "「大拇指掌根壓地」是口令不是訓練，這才是訓練", "進階條件": "15下輕鬆 → 加阻力", "退階／紅旗": "足底刺痛即停"}, {"課表日": "下肢", "順序": 13, "動作名稱": "側躺髖外展／蚌式", "類別": "副項", "左邊": "2 組 × 15", "右邊": "4 組 × 15", "起始設定": "徒手或彈力帶", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "M5 下肢", "對應狀況": "D", "執行要點": "右側偏重，抗右骨盆內旋下掉", "進階條件": "15下輕鬆 → 加彈力帶", "退階／紅旗": "髖前夾擠感即減幅度"}, {"課表日": "輕鬆日", "順序": 1, "動作名稱": "定點放鬆：右腹股溝、右後背夾縫、左小腿外側", "類別": "重設", "左邊": "各 30 秒", "右邊": "各 30 秒", "起始設定": "球或徒手", "呼吸": "自然", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 準備", "對應狀況": "A,D", "執行要點": "左腋下大圓肌不要按——那裡是要練不是要放鬆", "進階條件": "時間不加長，這是暖身不是治療", "退階／紅旗": "按到刺痛即停"}, {"課表日": "輕鬆日", "順序": 2, "動作名稱": "不對稱貓牛式（左掌前移半掌）", "類別": "重設", "左邊": "4 組 × 8 呼吸", "右邊": "—", "起始設定": "徒手", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "A,B", "執行要點": "左掌根用力推地拱背，不聳肩，專注左腋下發力；空氣灌進右後背", "進階條件": "連續2週頂點無代償 → 手掌再前移2cm", "退階／紅旗": "肋骨刺痛或頭暈即停"}, {"課表日": "輕鬆日", "順序": 3, "動作名稱": "優化版仰躺椅子 90/90 呼吸（右腳踩高半掌）", "類別": "重設", "左邊": "5 呼吸 × 5 組", "右邊": "—", "起始設定": "膝夾毛巾、尾骨微離地", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "右腳比左腳踩高半個腳掌，左腰死貼地、右腰微離地。100% 不做反向", "進階條件": "呼吸全程順暢 → 膝間夾力加重", "退階／紅旗": "腰部代償拱起即降低墊高"}, {"課表日": "輕鬆日", "順序": 4, "動作名稱": "左側躺左腿內收抬高（下方腿抬起）", "類別": "重設", "左邊": "4-5 組 × 12-15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "左側躺，左腿在下伸直，右腿在上屈膝踩地。主動收縮左內收肌把下方腿抬向天花板", "進階條件": "W5 起腳踝加 1-2kg 沙包", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "輕鬆日", "順序": 5, "動作名稱": "靠牆滑行 + 頂點前伸", "類別": "重設", "左邊": "2 組 × 8", "右邊": "雙側", "起始設定": "徒手", "呼吸": "上滑時吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A,左後肩", "執行要點": "背貼牆、肋骨下沉不外翻，雙手沿牆上滑，頂點主動往前推出1cm。這是治左後肩酸的正解", "進階條件": "靠牆滑行測試轉陰性 → 進 Phase 2", "退階／紅旗": "出現麻／電／針點痛即停"}, {"課表日": "輕鬆日", "順序": 6, "動作名稱": "左單臂地雷管推舉（空棍 20kg）", "類別": "副項", "左邊": "2 組 × 12", "右邊": "只做左手", "起始設定": "空棍，不加片", "呼吸": "常規", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A", "執行要點": "RPE 6-7。這天的目的是高頻率接觸，不是刺激", "進階條件": "不進階，這是維持量", "退階／紅旗": "任何不適即停"}, {"課表日": "輕鬆日", "順序": 7, "動作名稱": "左側躺左腿內收抬高（加做）", "類別": "副項", "左邊": "3 組 × 15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "做完就收工。不准加動作——加了就不是輕鬆日", "進階條件": "不進階", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "打波", "順序": 1, "動作名稱": "定點放鬆：右腹股溝、右後背夾縫、左小腿外側", "類別": "重設", "左邊": "各 30 秒", "右邊": "各 30 秒", "起始設定": "球或徒手", "呼吸": "自然", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 準備", "對應狀況": "A,D", "執行要點": "左腋下大圓肌不要按——那裡是要練不是要放鬆", "進階條件": "時間不加長，這是暖身不是治療", "退階／紅旗": "按到刺痛即停"}, {"課表日": "打波", "順序": 2, "動作名稱": "不對稱貓牛式（左掌前移半掌）", "類別": "重設", "左邊": "4 組 × 8 呼吸", "右邊": "—", "起始設定": "徒手", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "A,B", "執行要點": "左掌根用力推地拱背，不聳肩，專注左腋下發力；空氣灌進右後背", "進階條件": "連續2週頂點無代償 → 手掌再前移2cm", "退階／紅旗": "肋骨刺痛或頭暈即停"}, {"課表日": "打波", "順序": 3, "動作名稱": "優化版仰躺椅子 90/90 呼吸（右腳踩高半掌）", "類別": "重設", "左邊": "5 呼吸 × 5 組", "右邊": "—", "起始設定": "膝夾毛巾、尾骨微離地", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "右腳比左腳踩高半個腳掌，左腰死貼地、右腰微離地。100% 不做反向", "進階條件": "呼吸全程順暢 → 膝間夾力加重", "退階／紅旗": "腰部代償拱起即降低墊高"}, {"課表日": "打波", "順序": 4, "動作名稱": "左側躺左腿內收抬高（下方腿抬起）", "類別": "重設", "左邊": "4-5 組 × 12-15", "右邊": "只做左邊", "起始設定": "徒手", "呼吸": "頂點憋2秒", "左腳踝有事時": "照做", "階段": "全期", "模組": "M6 左內收肌", "對應狀況": "E", "執行要點": "左側躺，左腿在下伸直，右腿在上屈膝踩地。主動收縮左內收肌把下方腿抬向天花板", "進階條件": "W5 起腳踝加 1-2kg 沙包", "退階／紅旗": "鼠蹊刺痛即停"}, {"課表日": "打波", "順序": 5, "動作名稱": "靠牆滑行 + 頂點前伸", "類別": "重設", "左邊": "2 組 × 8", "右邊": "雙側", "起始設定": "徒手", "呼吸": "上滑時吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "M2 前鋸肌與肩胛", "對應狀況": "A,左後肩", "執行要點": "背貼牆、肋骨下沉不外翻，雙手沿牆上滑，頂點主動往前推出1cm。這是治左後肩酸的正解", "進階條件": "靠牆滑行測試轉陰性 → 進 Phase 2", "退階／紅旗": "出現麻／電／針點痛即停"}, {"課表日": "打波", "順序": 6, "動作名稱": "賽後立刻再做一次完整重設", "類別": "重設", "左邊": "全套", "右邊": "全套", "起始設定": "賽後30分鐘內", "呼吸": "同重設", "左腳踝有事時": "腳踝有事＝這週不要打", "階段": "全期", "模組": "M1 準備", "對應狀況": "全部", "執行要點": "賽後那15分鐘價值最高，因為模式剛被大量寫入。這是打波日最重要的一項", "進階條件": "不進階", "退階／紅旗": "打完痛／腫／跛 → 下週停打"}, {"課表日": "休息", "順序": 1, "動作名稱": "仰躺椅子 90/90 呼吸（最低生存版重設）", "類別": "重設", "左邊": "5 組 × 5 呼吸", "右邊": "—", "起始設定": "5 分鐘就好", "呼吸": "吐6／憋2／吸4", "左腳踝有事時": "照做", "階段": "全期", "模組": "M1 呼吸與肋骨位置", "對應狀況": "D,E", "執行要點": "休息日唯一不可妥協的東西。不用器材、不用出門、不用體力", "進階條件": "有精神就做全套5項", "退階／紅旗": "無"}, {"課表日": "測試日", "順序": 1, "動作名稱": "① 左右單臂啞鈴划船 8RM", "類別": "測試", "左邊": "找出只能做8下的重量", "右邊": "同左", "起始設定": "從輕試起，每次加2kg，中間休息3分鐘", "呼吸": "常規", "左腳踝有事時": "照做", "階段": "全期", "模組": "T 測試", "對應狀況": "A", "執行要點": "記兩個 kg 數字。左右差% =（右−左）÷右×100", "進階條件": "—", "退階／紅旗": "—"}, {"課表日": "測試日", "順序": 2, "動作名稱": "② 單腳 RDL — 指尖離地高度（新測法）", "類別": "測試", "左邊": "左 3 次取最好", "右邊": "右 3 次取最好", "起始設定": "量指尖最低點離地幾 cm", "呼吸": "常規", "左腳踝有事時": "照做，痛就跳過", "階段": "全期", "模組": "T 測試", "對應狀況": "C", "執行要點": "★改測法：不再量「離腳尖多遠」，改量「指尖最低點離地幾 cm」，數字越小越好。單腳站、另一腳往後伸直、屁股後推、背保持平，腰一彎就停。兩邊都用對側手（左腳站用右手）。腳跟不離地", "進階條件": "—", "退階／紅旗": "腰先彎＝該次不算"}, {"課表日": "測試日", "順序": 3, "動作名稱": "③ 靠牆滑行測試", "類別": "測試", "左邊": "背貼牆滑到頭頂", "右邊": "看左肋", "起始設定": "可／否", "呼吸": "上滑吐氣", "左腳踝有事時": "照做", "階段": "全期", "模組": "T 測試", "對應狀況": "A", "執行要點": "記「左肋有沒有外翻」。由「是」轉「否」＝可以進 Phase 2", "進階條件": "—", "退階／紅旗": "—"}, {"課表日": "測試日", "順序": 4, "動作名稱": "④ Roos／EAST 三分鐘", "類別": "測試", "左邊": "雙手投降姿勢開合拳3分鐘", "右邊": "秒數＋有無麻", "起始設定": "計時3分鐘", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "T 測試", "對應狀況": "B,左後肩", "執行要點": "★分開記兩件事：(a)左後肩開始「酸」是第幾秒 → 這是耐力指標，秒數往後推＝進步；(b)有沒有「麻／電／沉重／手變白」→ 這才是神經血管陽性徵象", "進階條件": "—", "退階／紅旗": "出現麻＝紅旗，記錄並回報"}, {"課表日": "測試日", "順序": 5, "動作名稱": "⑤ 內收肌落下測試 + 震盪判別", "類別": "測試", "左邊": "大腿離地幾個拳頭", "右邊": "同左", "起始設定": "仰躺，屈髖屈膝90°自然落下", "呼吸": "自然呼吸", "左腳踝有事時": "照做", "階段": "全期", "模組": "T 測試", "對應狀況": "E", "執行要點": "★新增第二步：落到極限後，做3-5次小幅度「主動收縮再放鬆」的微晃動。若能多落一點＝軟組織限制（可訓練）；完全沒變化、像撞硬邊界＝關節囊／骨性限制（不要硬壓，這是天花板）", "進階條件": "—", "退階／紅旗": "鼠蹊深處夾擠痛即停"}, {"課表日": "測試日", "順序": 6, "動作名稱": "⑥ 六項症狀評分", "類別": "測試", "左邊": "A／C／D／E／左後肩／左腳踝", "右邊": "各給 0-10", "起始設定": "0＝完全沒感覺，10＝嚴重影響日常", "呼吸": "—", "左腳踝有事時": "照做", "階段": "全期", "模組": "T 測試", "對應狀況": "全部", "執行要點": "★比上次多一項：左腳踝", "進階條件": "—", "退階／紅旗": "—"}];
+const LOGS_SEED = [{"週次": "W1", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做 6 項測試，約30分鐘，不做其他訓練（見課表卡「測試日」）", "今日課表": "測試日", "備註": "基準測試已完成；當晚加做上肢A縮減版（砍箱深蹲、農夫行走）", "地雷管左手kg": "", "地雷管次數": "", "完成": "Yes", "左後肩酸": "", "左腳踝": "", "日期": "August 3, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "Yes", "重設完成": "Yes", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": 5.0, "C 左髕腱": 3.0, "D 右髖彈響": 3.0, "E 左內收肌": 4.0, "主項RPE": 8.0, "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": 2.5, "地雷管次數": 12.0, "完成": "Yes", "左後肩酸": 5.0, "左腳踝": 5.0, "日期": "August 5, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": 0.0, "減量週": "否", "螢幕已居中抬高": "Yes", "重設完成": "Yes", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 4, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 6, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": 5.0, "C 左髕腱": 3.0, "D 右髖彈響": 2.0, "E 左內收肌": 3.0, "主項RPE": 9.0, "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "Yes", "左後肩酸": 3.0, "左腳踝": 3.0, "日期": "August 7, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "Yes", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": 3.0, "C 左髕腱": 3.0, "D 右髖彈響": 3.0, "E 左內收肌": 3.0, "主項RPE": 7.0, "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "Yes", "左後肩酸": 5.0, "左腳踝": 5.0, "日期": "August 8, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "Yes", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W1", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 9, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 10, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": 25.0, "減量週": "否", "螢幕已居中抬高": "Yes", "重設完成": "Yes", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "", "今日課表": "休息", "備註": "左腳裸內側挫傷", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 11, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 12, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 13, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "", "今日課表": "休息", "備註": "左腳裸內側挫傷", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 14, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 15, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W2", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 16, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "左腳裸內側挫傷", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 17, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 18, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 19, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 20, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 21, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 22, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W3", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 23, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做 6 項測試，約30分鐘，不做其他訓練（見課表卡「測試日」）", "今日課表": "測試日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 24, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 25, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 26, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 27, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 28, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 29, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W4", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 30, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 1 補洞"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "August 31, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 1, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 2, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 3, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 4, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 5, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W5", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 6, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 7, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 8, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 9, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 10, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 11, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 12, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W6", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 13, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 14, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 15, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 16, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 17, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 18, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 19, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W7", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 20, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做 6 項測試，約30分鐘，不做其他訓練（見課表卡「測試日」）", "今日課表": "測試日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 21, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 22, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 23, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 24, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 25, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 26, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W8", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 27, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 2 左側力量化"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 28, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 29, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "September 30, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 1, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 2, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 3, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W9", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 4, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 5, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 6, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 7, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 8, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 9, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 10, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W10", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 11, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 12, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 13, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 14, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 15, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 16, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 17, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W11", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 18, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "否", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做 6 項測試，約30分鐘，不做其他訓練（見課表卡「測試日」）", "今日課表": "測試日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 19, 2026", "星期": "一", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 地雷管推舉／Cable推胸／過頂支撐／側躺外旋／箱深蹲／農夫行走", "今日課表": "上肢A", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 20, 2026", "星期": "二", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 保加利亞／北歐腿彎舉／單腳橋式／RDL／提踵／比目魚／腳趾／髖外展", "今日課表": "下肢", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 21, 2026", "星期": "三", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 左地雷管空棍2組／左內收抬高3組。20分鐘完，不准加", "今日課表": "輕鬆日", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 22, 2026", "星期": "四", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "重設15min → 垂直下拉／坐姿划船／三點划船／側向下壓／後踢屁股機", "今日課表": "上肢B", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 23, 2026", "星期": "五", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "賽前重設全套 → 打波 → 賽後30分鐘內立刻再做一次完整重設", "今日課表": "打波", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 24, 2026", "星期": "六", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}, {"週次": "W12", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "主項RPE": "", "今日內容": "只做重設（最少：90/90呼吸 5組×5呼吸，5分鐘）", "今日課表": "休息", "備註": "", "地雷管左手kg": "", "地雷管次數": "", "完成": "No", "左後肩酸": "", "左腳踝": "", "日期": "October 25, 2026", "星期": "日", "有無麻感": "No", "比賽分鐘": "", "減量週": "是", "螢幕已居中抬高": "No", "重設完成": "No", "鍵盤在桌面": "No", "階段": "Phase 3 收斂回球場"}];
+const TESTS_SEED = [{"測試日期": "2026-08-03", "週次": "W1", "階段": "Phase 1 補洞", "左手划船8RM kg": 27.5, "右手划船8RM kg": 30.0, "左右差 %": 8.0, "左單腳RDL 指尖離地cm": "", "右單腳RDL 指尖離地cm": "", "靠牆滑行 左肋外翻": "是", "EAST 左後肩酸出現秒數": "", "EAST 有無麻": "", "內收肌落下 左 拳": 3.0, "內收肌落下 右 拳": 2.0, "內收肌 震盪後有改善": "", "過頂階梯 第幾階": 1.0, "A 肩胛翼狀": 3.0, "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": 6.0, "左後肩酸": "", "左腳踝": "", "是否達標進下階段": "", "備註": "舊測法 RDL 左30／右24（量離腳尖距離）→ 已作廢，改用指尖離地cm。左腳踝待處理"}, {"測試日期": "2026-08-24", "週次": "W4", "階段": "Phase 1 補洞", "左手划船8RM kg": "", "右手划船8RM kg": "", "左右差 %": "", "左單腳RDL 指尖離地cm": "", "右單腳RDL 指尖離地cm": "", "靠牆滑行 左肋外翻": "", "EAST 左後肩酸出現秒數": "", "EAST 有無麻": "", "內收肌落下 左 拳": "", "內收肌落下 右 拳": "", "內收肌 震盪後有改善": "", "過頂階梯 第幾階": "", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "左後肩酸": "", "左腳踝": "", "是否達標進下階段": "", "備註": ""}, {"測試日期": "2026-09-21", "週次": "W8", "階段": "Phase 2 左側力量化", "左手划船8RM kg": "", "右手划船8RM kg": "", "左右差 %": "", "左單腳RDL 指尖離地cm": "", "右單腳RDL 指尖離地cm": "", "靠牆滑行 左肋外翻": "", "EAST 左後肩酸出現秒數": "", "EAST 有無麻": "", "內收肌落下 左 拳": "", "內收肌落下 右 拳": "", "內收肌 震盪後有改善": "", "過頂階梯 第幾階": "", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "左後肩酸": "", "左腳踝": "", "是否達標進下階段": "", "備註": ""}, {"測試日期": "2026-10-19", "週次": "W12", "階段": "Phase 3 收斂回球場", "左手划船8RM kg": "", "右手划船8RM kg": "", "左右差 %": "", "左單腳RDL 指尖離地cm": "", "右單腳RDL 指尖離地cm": "", "靠牆滑行 左肋外翻": "", "EAST 左後肩酸出現秒數": "", "EAST 有無麻": "", "內收肌落下 左 拳": "", "內收肌落下 右 拳": "", "內收肌 震盪後有改善": "", "過頂階梯 第幾階": "", "A 肩胛翼狀": "", "C 左髕腱": "", "D 右髖彈響": "", "E 左內收肌": "", "左後肩酸": "", "左腳踝": "", "是否達標進下階段": "", "備註": ""}];
+const KNOWLEDGE = [{"分類": "理論基礎", "順序": 1, "主題": "PRI 左AIC/右BRC 模型是什麼", "對應狀況": "通用原則", "內容": "這套系統假設你的骨盆與胸廓因為長期使用模式（右手投籃、左腳起跳支撐、長期右側變向探步）產生了固定的旋轉代償：骨盆整體右旋（右骨盆前傾內旋、左骨盆後旋外展），軀幹向右旋轉（左前肋外翻卡在無法下降的吸氣位、右後側胸廓被壓縮扣死）。這個框架用來解釋你五大狀況（A-E）為什麼會同時出現、而且都偏向身體同一側，是整套課表的底層假設。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §一、§三"}, {"分類": "理論基礎", "順序": 2, "主題": "這套理論的證據強度到底有多強", "對應狀況": "通用原則", "內容": "PRI 的核心解剖前提（右側橫膈膜腳較長較大、肝右心左、骨盆左右不對稱在人群中確實常見）有解剖事實支撐；但「幾乎所有人都是同一個模式」以及「呼吸訓練可以重新定位骨盆」這兩個核心主張，主要靠機轉推論與個案系列支持，缺乏高品質 RCT。體態學界近二十年的共識是：靜態姿勢與疼痛的相關性遠比想像中弱。但重要的是：這份課表跑出來的具體處方——單邊負重矯正力量差、前鋸肌強化處理肩胛動作異常、呼氣導向呼吸壓低肋骨、對已被拉長卻緊繃的肌肉做向心收縮而非被動拉筋——幾乎每一條都能被 PRI 以外的獨立證據支持。地圖可能不準，路線卻大致正確。實務含意：繼續做這套課表沒問題，但如果日後要寫成果報告或案例分享，不要把身體改善全部歸因於「骨盆回正」，因為鍵盤移位、整體肌力提升、負荷管理、自然病程都是同樣合理的解釋，混在一起沒辦法分離變量。", "證據強度": "獨立實證支持（處方層面）／機轉推論（框架層面）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "—"}, {"分類": "理論基礎", "順序": 3, "主題": "重設動作在練什麼", "對應狀況": "通用原則", "內容": "90/90 呼吸、不對稱貓牛、靠牆滑行這些動作的作用機制，是用「閉鏈姿勢＋可控呼吸」暫時把肋骨與骨盆帶到中線位置，讓神經系統重新學習這個位置是安全的、可以被主動控制的——不是物理上把骨頭扳正。這個效果是暫時且需要重複疊加的，這正是為什麼它排在「每日」而不是「一次性治療」，也是為什麼它不能被「訓練前隨便做做」取代。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⓪重設全套"}, {"分類": "症狀解析", "順序": 1, "主題": "狀況 A：左肩胛翼狀 — 機制已修正", "對應狀況": "A肩胛翼狀", "內容": "原假設：左肋外翻導致左前鋸肌長期拉長罷工，左下斜方代償。本次討論（8/4）修正了機制：辦公姿勢下右手長期在上（滑鼠）、左手長期在下（鍵盤在抽屜），讓左肩胛長期處於「內收下沉」的功能相反位置。更準確的機制是「長期不在功能發力角度，導致神經募集效率下降」，不是單純的物理拉長——「拉長」和「無力」是兩件不同的事，可能相關但不能直接畫等號。目前左手 20kg 空槓做單臂地雷管推舉已經很穩固，代表前鋸肌剛性已初步建立。", "證據強度": "機轉推論（已修正一次）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 上肢A #1"}, {"分類": "症狀解析", "順序": 2, "主題": "狀況 B：左頸麻 — 已清零，但要用測試結案", "對應狀況": "B左頸麻", "內容": "原成因：左前肋上飄頂起左側前斜角肌與胸鎖乳突肌，頭轉向右上方時兩端極端拉長，壓迫臂神經叢。鍵盤從抽屜移到桌面後，這是目前唯一一個已經被有實證支持的人因工程介入直接解決的狀況。但「感覺沒事」不算數，要用測試確認：①上肢神經張力測試（ULTT，正中神經向）——手臂外展90°、肘伸直、腕背屈，頸部往對側側屈，兩側牽拉感對稱且無麻電才算清零，已通過；②Roos/EAST 三分鐘——三分鐘內不誘發左側麻/酸/沉重才算陰性，已通過（頸不麻）。", "證據強度": "用戶數據驗證", "狀態": "已清零", "已消化": "", "最後更新": "2026-08-04", "相關位置": "3_測試記錄 8/3 列"}, {"分類": "症狀解析", "順序": 3, "主題": "狀況 C：左髕腱 — 動作描述已更正，機制方向不變", "對應狀況": "C左髕腱", "內容": "原始描述是「半跪後傾」，8/4 更正為「站立、微屈膝（膝不觸地）、身體後傾」，這個特殊角度下才會有拉扯痛，並延伸到膝蓋外側。機制：這個姿勢重心後移，地面反作用力落在膝關節後方，產生屈膝力矩，股四頭必須離心對抗；同時髖被推向伸展，跨兩關節的股直肌在髖端被拉長、膝端出力。這跟原假設「左髖缺乏主動伸展，離心力繞過髖砸在髕腱」方向一致，訓練邏輯不變（已新增單腳橋式直接補主動髖伸展）。但「延伸到膝蓋外側」這個細節要單獨標注：純粹的髕腱本體病變通常集中在髕骨下極，不太會放射到外側；放射到外側可能牽涉髂脛束或外側支持帶的張力參與，這需要手觸診才能鑑別，不是靠描述能判斷的。", "證據強度": "機轉推論", "狀態": "觀察中", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 下肢日 #3"}, {"分類": "症狀解析", "順序": 4, "主題": "狀況 D：右髖彈響 — 目前安靜", "對應狀況": "D右髖彈響", "內容": "成因：右骨盆習慣前傾下掉，導致深層右髂腰肌長期縮短緊繃且軌道歪斜，反覆摩擦髂恥隆起。同時存在一個上下端力學矛盾：右骨盆在靜態結構上是內旋/內收（前傾下掉），但打籃球時右腳強行做出外旋/外展的動態切入代償，這種「扭乾毛巾剪力」是右膝晃動、右髖彈響的元兇。最近一場高強度比賽賽後，右腹出現「良性神經抽動疲勞感」隨後消失，判斷為核心自動觸發回正對抗後的正常反應，不是惡化信號。", "證據強度": "機轉推論", "狀態": "觀察中", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 下肢日 #8 側躺髖外展"}, {"分類": "症狀解析", "順序": 5, "主題": "狀況 E：左內收肌 — 可能不是內收肌本身的問題", "對應狀況": "E左內收肌", "內容": "原假設：左骨盆往後往外開，把左內收肌硬拉長，產生保護性痙攣（偽緊繃），所以 100% 禁止被動拉筋，只做左側躺內收抬高的向心收縮去縮短這條「橡皮筋」。8/4 你提出新解釋：落下測試落不下去，是臀部肌肉卡住你，左右不同是骨盆位置造成的。這個推論很可能是對的，而且後果不小——如果限制來自髖關節囊或骨性結構（包括每個人天生不同、練不動的股骨扭轉角度差異），那再多內收肌訓練或拉筋都不會讓它落得更深，硬壓只會激怒關節而不是「鬆開」它。已在測試流程加入震盪判別步驟來分辨這兩種可能。", "證據強度": "機轉推論（新增，待8/24驗證）", "狀態": "觀察中", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #5"}, {"分類": "症狀解析", "順序": 6, "主題": "左後肩／大小圓肌酸 — 是耐力不足，不是張力過高", "對應狀況": "左後肩酸", "內容": "Roos/EAST 三分鐘測試出現的酸，是對大小圓肌、背闊肌、後三角、下斜方的等長耐力測試，不是胸廓出口症候群的陽性徵象（那要看麻/電/沉重/發白）。上一版建議用按摩球放鬆腋下和肩胛外側，是把「容量不足」當成「張力過高」在處理——按完當下鬆幾小時，下次三分鐘還是一樣酸，因為組織容量沒有改變。這跟左小腿只揉不練是同一個錯誤的第二次出現。正解是負荷：肩胛上旋訓練＋後旋轉肌耐力訓練。重設動作已把「左腋下大圓肌」從按摩清單移除，改用側躺外旋＋靠牆滑行頂點前伸來直接練這個容量。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 上肢A #4、⓪重設#5"}, {"分類": "辦公環境", "順序": 1, "主題": "電腦桌不對稱姿勢的力學分析", "對應狀況": "A肩胛翼狀,左後肩酸", "內容": "螢幕偏右、太近、太低，逼你縮脖子看；同時因為所有東西都在右側，你會把椅子轉向左（下半身指向左），但上半身轉向右去用滑鼠、頭也右轉看螢幕，右手長期在上（滑鼠）、左手長期在下（鍵盤在抽屜）。這個姿勢跟訓練裡的「不對稱貓牛式」方向剛好相反：貓牛式是主動、短時（15分鐘）把左肩胛帶到正確位置；辦公姿勢是被動、長時（6-10小時）把身體鎖在原本代償模式裡。兩者不是同一個量級的對手——任何訓練刺激的劑量都追不上這個時長差距。這是目前整套系統裡改動成本最低、影響最大的槓桿點，已列為 Priority 0。", "證據強度": "機轉推論", "狀態": "現行採用，已開始改造", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §八"}, {"分類": "辦公環境", "順序": 2, "主題": "頸胸交界酸痛是獨立問題，不要塞進同一個框架", "對應狀況": "通用原則", "內容": "縮脖子看螢幕造成的頸胸交界處（約C7-T1）酸痛，主要來自頭前引/低頭視線角度對深層頸伸肌群的持續等長負荷，這在辦公人群中極常見。這跟 AIC/BRC 不對稱模式是兩條獨立的問題線，不需要也不應該被塞進同一個大理論框架裡解釋——不是所有身體不適都要用同一套模型解釋，過度歸因反而會讓你忽略真正該改的環境因素（螢幕高度與距離）。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §八"}, {"分類": "測試方法", "順序": 1, "主題": "單臂划船 8RM 左右差測試", "對應狀況": "通用原則", "內容": "找出左右手各自「只能做8下」的重量，從輕試起每次加2kg，中間休息3分鐘。左右差% = (右手8RM－左手8RM)÷右手8RM×100。8/3實測左27.5kg／右30kg，差8.3%，低於10%門檻——意義是：你左側的問題不是力量，是控制、耐力和位置，原本假設左側大幅落後，數據不支持這一點。但規則是「連續兩次」都<10%才降低左側容量，因為單次測試可能是狀態好或抓重不準造成的假象。", "證據強度": "用戶數據驗證", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #1、3_測試記錄"}, {"分類": "測試方法", "順序": 2, "主題": "單腳 RDL 測試 — 測法已修正", "對應狀況": "C左髕腱", "內容": "英文名稱：Single-Leg RDL 或 Single-Leg Hip Hinge，接近的標準化版本是 Single Leg Toe Touch Test、Y-Balance Test 的 posteromedial reach。舊測法（量腳尖到手摸到的位置之間的距離）8/3實測左30cm（只摸到小腿）／右24cm（摸到腳踝內側）——在這個定義下數字越小代表摸得越低、越好，所以右邊表現比左邊好，這其實跟「左髖伸展不足」假設是一致的（先前一度誤讀成矛盾，已更正方向）。但這個測法本身重複性太差，會隨你摸到哪個部位而跳動，已改為「量指尖最低點離地幾cm」，數字越小越好，兩邊都用對側手（左腳站用右手），並加碼用手機側面錄影，看下降過程中腰椎是否在髖還沒到極限前就先代償拱起——哪一側先代償，哪一側才是真的差，跟摸到哪裡無關。", "證據強度": "機轉推論＋用戶數據", "狀態": "現行採用（測法已改）", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #2"}, {"分類": "測試方法", "順序": 3, "主題": "靠牆滑行測試", "對應狀況": "A肩胛翼狀", "內容": "背貼牆、肋骨壓下，雙手沿牆滑到頭頂，記左肋有沒有外翻。這是決定能不能從 Phase 1 進到 Phase 2 的唯一門檻。8/3 結果是「是」（外翻），所以目前鎖在 Phase 1，斜板俯臥 Y 和 Face Pull 一項都不做，要先把這個「是」變成「否」。", "證據強度": "用戶數據驗證", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #3、00_總指南 §三"}, {"分類": "測試方法", "順序": 4, "主題": "Roos／EAST 三分鐘測試 — 要分辨酸跟麻", "對應狀況": "左後肩酸,B左頸麻", "內容": "雙手投降姿勢開合拳三分鐘。關鍵是分辨「酸/攰」跟「麻/電/沉重/發白」——這兩者在這個測試裡意義完全相反：麻/電/沉重/發白＝血管神經受壓的陽性徵象；左肩胛下方/大小圓肌/背闊肌上緣發酸＝肌肉耐力不足，是一條長期不擅長維持上旋位的肩胛，撐三分鐘會酸，完全在預期之內。8/3測試結果：頸不麻（陰性，狀況B清零成立），但左肩胛下方會酸——這點過去曾被誤判方向、建議按摩處理，實際上該用負荷訓練解決。", "證據強度": "機轉推論＋用戶數據", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #4"}, {"分類": "測試方法", "順序": 5, "主題": "內收肌落下測試 ＋ 震盪判別", "對應狀況": "E左內收肌", "內容": "仰躺，一腳伸直不動，另一腳屈髖屈膝90°，讓大腿往外自然放鬆落下（不要用力壓），記落到多低（幾個拳頭高，數字越小越鬆）。8/3結果左3拳／右2拳，跟狀況E評分6分一致。新增震盪判別步驟：落到極限後做3-5次小幅度「主動收縮再放鬆」微晃動——能多落一點＝軟組織限制（可訓練，繼續做）；完全沒變化、像撞硬邊界＝關節囊或骨性限制（這就是你的天花板，不要追求更深，硬壓只會激怒關節）。", "證據強度": "機轉推論（震盪判別待8/24驗證）", "狀態": "現行採用（新增判別步驟）", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 ⑦測試日 #5"}, {"分類": "訓練規則", "順序": 1, "主題": "三階段框架為什麼要分開", "對應狀況": "通用原則", "內容": "Phase 1 補洞（W1-4）：補下肢、補後肩耐力、修正輕鬆日、開啟過頂階梯，左4-5組/右3組，全面倒轉呼吸。Phase 2 左側力量化（W5-8）：解決「控制很好但一直很弱」的問題，主項改常規支撐、可以真的加重，倒轉呼吸退到副項，解封斜板俯臥Y與Face Pull。Phase 3 收斂回球場（W9-12）：左右容量拉平成4/4，加入落地與彈跳重建。分階段的原因：倒轉呼吸是動作控制工具，不是力量工具，它讓你無法使用重負荷需要的軀幹支撐（Valsalva）——跑四週建立模式是對的，但跑十二週你會得到一條「動作很漂亮但推不動東西」的左手，Phase 2就是刻意把這個限制放出來。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §三"}, {"分類": "訓練規則", "順序": 2, "主題": "技術性力竭 — 凌駕 RPE 的核心紀律", "對應狀況": "通用原則", "內容": "動作品質一走樣就停，不是做到做不動。硬撐的那幾下，招募的正是你想移除的代償模式，對運動控制導向的課表而言是必須遵守的鐵律。這條規則凌駕RPE數字——就算RPE只到6、7，動作一走樣立刻停；反過來，RPE到8、9但動作依然乾淨，可以繼續。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §二"}, {"分類": "訓練規則", "順序": 3, "主題": "過頂階梯 — 決定何時「正常做 gym」", "對應狀況": "B左頸麻", "內容": "四階進程：①單臂啞鈴過頂支撐30秒→②單臂過頂行走20步→③半跪單臂啞鈴推舉→④站姿單臂啞鈴推舉。每階至少停留兩週，出現任何麻感立刻退回上一階。到第4階代表神經症狀已經穩定清零，可以說自己「正常做gym」了。8/3測試填的是第1階，這是保守但必要的起點，因為狀況B剛清零不久。", "證據強度": "機轉推論", "狀態": "現行採用（第1階）", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 上肢A #3、00_總指南 §五"}, {"分類": "訓練規則", "順序": 4, "主題": "打波是生活選擇不是課表，砍除有優先順序", "對應狀況": "通用原則", "內容": "打波不是排定的訓練，是你的生活；你選擇打，它就按下肢高強度日計量，因為兩小時的反向刺激加上最高受傷風險，需要對應的恢復預算。腳踝還在撞骨、還會痛的那週不要打——這是全套系統裡唯一一個「不練會更好」的項目。時間或精力不夠時的砍除順序：①打波（省最多恢復量、風險降最多）②一個上肢日（左右差已<10%，容量沒想像中緊急，留一個就好）③輕鬆日（只值20分鐘，最後才砍）。永不砍：下肢日（腳踝需要的東西＋北歐腿彎舉都在這）、每日15分鐘重設（在家做，不需要器材體力，就算一整週沒去gym也要做）。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 隨身鐵律"}, {"分類": "決策紀錄", "順序": 1, "主題": "8/3 基準測試與當日決策", "對應狀況": "通用原則", "內容": "完成6項測試：划船8RM左27.5/右30（差8.3%）；靠牆滑行左肋外翻=是；EAST頸不麻但左肩胛下方酸；內收肌落下左3/右2拳；過頂階梯第1階。當晚判斷「測試不算重訓練」，加做上肢A縮減版（砍箱深蹲、農夫行走），因為當時已發現左腳踝新症狀，這兩項都會壓迫左腳踝。", "證據強度": "用戶數據", "狀態": "已完成", "已消化": "", "最後更新": "2026-08-04", "相關位置": "3_測試記錄 8/3列、1_訓練日曆與日誌 row0"}, {"分類": "決策紀錄", "順序": 2, "主題": "8/4 左腳踝新症狀處理", "對應狀況": "左腳踝", "內容": "描述為外側痛＋轉動時撞骨＋腳尖上提伸直有撞擊感＋7/30打球後至今未癒（已超過4天），跟原本「假性拗柴感」（揉小腿外側可消除的張力性感覺）性質不同，屬於新的、有機械性卡頓的症狀，AI無法隔著螢幕判斷。設定紅旗：有腫脹／走路避痛／踝有卡住或軟腳瞬間／10天內未改善，中任一項就去看骨科或物理治療師，別拖。在確認之前，下肢日與打波日都已設計對應的替代版本。", "證據強度": "機轉推論（需臨床確認）", "狀態": "觀察中", "已消化": "", "最後更新": "2026-08-04", "相關位置": "01_課表卡 開頭紅旗檢查、下肢日🦶版"}, {"分類": "決策紀錄", "順序": 3, "主題": "8/4 辦公桌力學分析與槓桿點確認", "對應狀況": "A肩胛翼狀,左後肩酸", "內容": "三方會診結論：辦公姿勢是目前系統性價比最高的改動——訓練刺激一天15-60分鐘，辦公姿勢一天6-10小時，任何動作的刺激量都追不上這個時長差距。決定不新增橫向前鋸肌訓練（現有地雷管推舉與Cable高位下壓推胸在動作末端已經要求肩胛前伸，功能向量已覆蓋前鋸肌的前伸/上旋方向），優先處理環境：螢幕居中、抬高、拉遠，鍵盤上桌，滑鼠靠中線。", "證據強度": "機轉推論", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §八"}, {"分類": "決策紀錄", "順序": 4, "主題": "8/4 第四個資料庫「知識手冊」建立", "對應狀況": "通用原則", "內容": "在原有訓練日曆、動作庫、測試記錄三個資料庫之外，新增這個知識手冊資料庫，用途是「學習」而非「執行」——課表卡管「做什麼」，這裡管「為什麼」。設計為兩個角色協作：資料整理師負責排版分類讓 Notion 好查；內容管理負責隨訓練進展持續新增/更新知識卡（例如每次測試日後、每次症狀有新發現時）。之後每次有新的測試結果或決策，都會在「決策紀錄」分類下新增一行，其他分類的既有知識卡如果被更新的理解推翻，會在「狀態」欄改成「已修正」並保留舊版說明，不會直接刪除。", "證據強度": "—", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-04", "相關位置": "00_總指南 §九（新增）"}, {"分類": "訓練規則", "順序": 5, "主題": "北歐腿彎舉的實證基礎：「降五成」這個數字本身也有爭議", "對應狀況": "通用原則", "內容": "北歐腿彎舉之所以在下肢日排在主項而不是可有可無的副項，背後有具體數字支撐。van Dyk、Behan 與 Whiteley 2019 年發表在 British Journal of Sports Medicine 的系統回顧與統合分析，彙整 8459 名運動員的資料，發現包含北歐腿彎舉的傷害預防計畫可以把腿後肌拉傷風險降低約五成（風險比約 0.49，95% 信賴區間 0.32 至 0.74）。這個機制主要來自離心力量的提升：北歐腿彎舉逼迫腿後肌在拉長狀態下持續出力，這正是短跑後擺相、急停變向這類動作造成拉傷的典型受力模式，跟一般坐姿腿彎舉這種向心為主的訓練所刺激到的能力不同。但這個「降五成」的說法在 2021 年被 Impellizzeri、McCall 與 van Smeden 三人在 Journal of Clinical Epidemiology 上重新檢驗。他們只保留隨機對照試驗、改用更嚴謹的統計方法重新分析同一批研究，結論是現有證據其實不確定，北歐腿彎舉的保護效果頂多算有條件推薦，原因包括納入研究的偏誤風險偏高、效果量在不同研究間差異很大，且大多數證據來自足球員這個單一族群，能否推論到籃球或其他項目仍不明朗。兩篇文章對同一批原始數據的解讀出現分歧，反映的是統合分析對統計方法本身的敏感度，不是北歐腿彎舉這個動作被證明無效。實務上這個爭議不太影響你現在的做法：北歐腿彎舉同時有紮實的離心力量與股二頭肌束長度增長證據，這兩點在兩篇文章裡都沒有分歧，這兩項本身就是合理的訓練目標，傷害風險降低與否只是額外的預期效益，不是唯一理由。職業層級的資料也支持這個方向。UEFA精英俱樂部傷害研究追蹤歐洲頂級男子足球俱樂部，2022年那份報告發現，把北歐腿彎舉排進全隊團體訓練的球隊，一季平均每隊5次腿後肌傷害，只用在個別球員身上的球隊平均11次，傷害負擔（缺賽天數／千小時）12天對35天，兩組差距都達統計顯著。同一研究團隊2023年針對女子職業足球的報告方向一致，團體訓練組比賽中腿後肌傷害發生率1.4對4.0。這兩份都不是實驗室研究，是直接追蹤真實職業聯賽球隊整季下來的結果，跟打球的情境比實驗室數字更貼近，只是基於保護球隊資料，公開報告裡不會寫出是哪幾支俱樂部。", "證據強度": "獨立實證支持（力量與肌束長度適應）／證據存在方法學爭議（傷害風險降低幅度）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-23", "相關位置": "01_課表卡 下肢日 #2 北歐腿彎舉"}, {"分類": "訓練規則", "順序": 6, "主題": "減量週的科學：超代償有生理基礎，但「規律砍半」本身的直接證據沒有想像中穩固", "對應狀況": "通用原則", "內容": "課表把 W4／W8／W12 設成減量週，理論基礎是超代償模型：訓練造成的疲勞先讓表現短暫下滑，隨後恢復期讓身體適應並反彈到比訓練前更高的水準，減量週的功能是給這個反彈足夠的空間，這也是課表卡那句「不是在練的時候變強，是在恢復的時候變強」的出處。這個機轉本身有紮實的生理學基礎，功能性超補償與非功能性超補償、過度訓練症候群之間的區別，也是運動生理學界的共識框架。但要注意這個機轉推論跟「規律地每四週砍半」這個具體操作是否真的能提升力量或肌肥大成果，是兩個層次的問題，後者的直接證據其實比一般想像中薄弱。Coleman 等人 2024 年發表在 PeerJ 的隨機對照試驗，在一群已有訓練經驗者的九週訓練計畫中間插入一週完全停練，結果減量組在下肢等長與動態力量的進步反而不如全程持續訓練組，肌肥大和肌耐力兩組沒有差異，減量組主觀的痠痛感與訓練動機確實有小幅改善，但研究者自己也說這個心理層面的差異大小有限、實務意義存疑。另一份針對減量實務的文獻回顧也指出，長時間高量高強度訓練後如果不減量，發生非功能性超補償的風險其實偏低，直接比較減量、完全停練、持續訓練這三者的高品質證據仍非常有限。這不代表該取消減量週，因為這套課表的減量週剛好卡在測試日前一天，它更直接的功能是讓測試當天的數字不被前一天的疲勞污染，這個理由本身站得住，不需要額外的超代償證據撐腰。真正該存疑的是「這樣做一定會讓你進步更快」這個更強的因果宣稱，目前的實證只到「有生理學上合理的機轉，加上專家共識支持」這個強度，還沒到「多篇高品質隨機對照試驗證實」的強度。把減量週寫進課表變成鐵律而不是選項，健力圈最著名的實例是Jim Wendler的5/3/1系統。Wendler是西岸槓鈴出身的職業健力選手，官方紀錄是用650磅的訓練最大重量拉起710磅比賽成績，2005年因為長期高強度訓練把身體練壞了才回頭設計這套刻意保守的系統。5/3/1的結構是三週漸進、第四週強制減量，降到訓練最大重量的40%到60%且不做力竭組，Wendler自己在訓練論壇上講得很直接，大意是他強烈建議每四週減量一次，因為這讓身體和心理都能休息，不會因此變弱，如果覺得變弱了，那是心理作用。這句話剛好可以拿來跟前面Coleman 2024年那篇隨機對照試驗對照著看，一個是被健力圈驗證了將近二十年的實務智慧，一個是嚴謹但樣本有限的單一研究，兩者結論方向不完全一致，這正是實務經驗和受控實驗常有落差的典型例子，不代表哪一邊一定錯，只代表這件事還沒有定論。", "證據強度": "機轉推論（超代償框架）／直接證據有限甚至相反（規律減量對已訓練者力量增長的效果）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-23", "相關位置": "00_總指南 §二 名詞對照表「減量週」、01_課表卡 隨身鐵律"}, {"分類": "訓練規則", "順序": 7, "主題": "為什麼認定按摩球在治標：被動放鬆和主動負荷各自能改變什麼，有分工", "對應狀況": "通用原則", "內容": "左後肩酸和左小腿這兩個狀況都出現過同一個判斷：按摩球或揉捏只能改變當下幾小時的感覺，改變不了真正的組織容量，所以解方要換成負荷訓練。這個判斷不是憑感覺下的。肌筋膜放鬆、滾筒、按摩對關節活動度的效果，在文獻上有相對一致的模式：單次放鬆確實能立即提升活動度與壓痛閾值，但這個效果消退得很快，一份針對膝伸肌群的研究量到放鬆後的活動度與組織硬度改變大約能維持 20 到 60 分鐘，力量本身則幾乎不受影響。更關鍵的是短期介入本身也拉不長效果：一篇統合分析比較滾筒訓練四週以內和四週以上的效果，發現只有超過四週的介入才觀察到活動度有統計上顯著的進步，四週以內的介入效果量小到不顯著；同一批作者針對滾筒訓練對運動表現的統合分析，更是完全沒有找到滾筒訓練優於對照組的證據。這些發現合起來說明的是同一件事：放鬆類手段動的是當下的痛覺閾值與組織的暫時延展性，動不到肌肉在特定角度、特定耐力區間的實際輸出能力，這正是左後肩那個「撐三分鐘會酸」的耐力缺口，以及左小腿長期緊繃感背後真正要補的東西。負荷訓練，也就是側躺外旋、靠牆滑行頂點前伸、比目魚肌等長這幾項的邏輯，才是在直接對組織的做功能力加量，效果才留得住。這不代表按摩球完全沒用，急性痠痛時拿來暫時降低不適仍合理，只是不該把它當成解決長期緊繃或耐力不足的主要工具。這一條沒有像前面幾張卡那樣有單一個某選手或某支球隊採用後怎麼樣的故事，因為它談的是一個否定性的發現，滾筒和按摩本身效果有限，很難找到因為採用了它而顯著改善的成功案例，只能找到證明它效果沒有想像中大的統合分析。這個差異本身也是一個訊號，真正有效的介入通常會留下具體的採用案例和可查證的數字，像北歐腿彎舉、5/3/1那樣；效果薄弱的介入則多半只留下大量個人使用心得和商業行銷內容，卻缺乏團隊或選手層級長期追蹤後的具體數字，這正是判斷一個方法到底有沒有實證支持時，一個很實用的旁證。", "證據強度": "獨立實證支持（放鬆手段對活動度與力量的效果範圍及持續時間）／機轉推論（套用到左後肩與左小腿這兩個具體狀況的判斷）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-23", "相關位置": "01_課表卡 ⓪重設#5、上肢A #4；00_總指南 §九-4"}, {"分類": "理論基礎", "順序": 4, "主題": "RPE／技術性力竭當作訓練劑量開關，這把尺本身有多準", "對應狀況": "通用原則", "內容": "課表卡幾乎每個主項動作都寫 RPE，00_總指南把它定義成還能多做幾下的主觀量尺，這其實就是肌力訓練圈通稱的 RIR（repetitions in reserve，保留次數）量表，最早由 Zourdos 等人 2016 年發表在 Journal of Strength and Conditioning Research 上提出並驗證。他們讓 29 名蹲舉者在 60%、75%、90%、100% 1RM 各做一次，比對主觀 RPE 和實際動作速度，發現兩者呈現很強的負相關，有經驗者 r 約負 0.88，新手 r 約負 0.77，代表這把尺確實在追蹤真實的出力強度。後續 Helms 等人 2018 年的隨機對照試驗，讓兩組人分別用 RPE 或用固定 %1RM 排課表練八週深蹲和臥推，兩組的力量與肌肉厚度增長沒有顯著差異，等於直接證明用 RPE 排課表跟用死板的百分比排課表一樣有效。但這把尺的準頭有個很具體的限制：Steele 等人 2017 年的研究找了 141 人測試預測自己還能做幾下到力竭的準確度，發現有訓練經驗者平均會少估 1 到 2 下，新手會少估 4 到 5 下，意思是就算覺得自己已經逼近力竭，實際上通常還有更多保留，而且離力竭越遠、次數越多、強度越低，估計就越不準。這對現在的用法有兩點直接意義。第一，課表卡的高強度日目標是 RPE7 到 8，這個範圍離真正的力竭還有 2 到 3 下的緩衝，剛好落在準確度相對較高的區間，不用太擔心抓不準。第二，技術性力竭即停這條鐵律本身就是在繞開 RPE 準確度的問題，因為它用的是可以客觀觀察的動作走樣當停止訊號，不完全依賴主觀的力竭感，這也是為什麼它被課表卡定位成凌駕 RPE 數字的更高位規則。這套量尺不是先有理論才拿去現場驗證，順序是反過來的。發明這個用法的是IPF（國際健力總會）冠軍、美國健力教練Mike Tuchscherer，他2008年出版《Reactive Training Manual》，把還剩幾下寫成正式的訓練變數，那時候學界根本還沒有相關實證研究，純粹是他自己比賽準備時發展出來的土法。這套用法在健力圈口耳相傳了將近十年，直到2016年Zourdos那篇論文才正式拿進實驗室驗證。Tuchscherer教練生涯15年帶過400多名選手，其中16人拿過IPF Classic世界錦標賽獎牌。這個先有實務、後有科學驗證的順序，回答了為什麼課表卡敢把RPE當成主要劑量工具而不是等更多研究出來才用，因為它從一開始就是為了解決真實訓練現場的問題而生的，不是實驗室產物。", "證據強度": "獨立實證支持（RPE 與客觀強度的相關性、RPE 排課表的訓練效果）／機轉推論（RPE 準確度隨強度與訓練經驗變化的具體應用）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-23", "相關位置": "00_總指南 §二 名詞對照表「主項RPE」「技術性力竭」"}, {"分類": "理論基礎", "順序": 5, "主題": "單邊訓練為什麼能同時練力量又矯正不對稱：交叉教育與雙側缺失", "對應狀況": "通用原則", "內容": "這套課表幾乎每個主項都是單邊動作，這個選擇背後有兩個各自獨立、方向一致的機制在幫忙，不是只有哪邊弱練哪邊這麼直觀的邏輯。第一個是雙側缺失：雙手或雙腳同時出力時，總力量往往小於左右分開單獨出力的力量總和，這個落差在不同測試方式下大約落在 5% 到 25% 之間，年紀越大落差越明顯，有研究測到年輕人約 22%、高齡者約 34%。這代表如果只做雙側動作，左側真正的力量缺口可能被右側代償蓋住而看不出來，也更難被單獨訓練到，這是這套課表刻意把大部分主項改成分邊做、分別記錄左右次數與重量的理由之一。第二個是交叉教育：只訓練一側肢體，對側沒練的肢體也會跟著變強，這個現象從 1894 年就有文獻記載，機制主要在中樞神經系統，包含大腦皮質與脊髓層級的雙側投射路徑，不是肌肉本身的變化。早期的統合分析估計這個遷移效果大約讓對側肢體多增加 7.8% 的力量，較新的研究則觀察到更大的效果量。這個機制的意義是，即使課表刻意給左側更多組數，Phase 1 的左 4 到 5 組對右 3 組，右側也不會因為組數變少而真的停滯，一部分訓練刺激會經由神經路徑遷移過去，這也是為什麼課表卡的邏輯是敢放心把容量往左側傾斜，不擔心右側被犧牲。2024 年一篇針對籃球員的隨機對照試驗直接驗證了這個組合策略：針對性的單邊複合動作訓練顯著縮小了下肢左右力量與爆發力的差距，而且不對稱程度縮小跟最大力量、爆發力進步呈正相關，這篇的族群和你的運動項目高度重疊。前面提到的2024年籃球員研究值得展開講。研究對象是男子籃球員，介入方式是針對性的單邊複合動作訓練，跟現在做的半跪地雷管推舉、保加利亞分腿蹲是同一個類型，練完之後不只不對稱程度顯著下降，這個下降幅度本身跟最大力量、爆發力的進步呈正相關，也就是說變得更對稱和變得更強在這批球員身上是同一件事的兩面，不是要犧牲一個換另一個。這跟課表卡的邏輯完全對得上，左邊多做的組數不是單純在補洞，是在用同一套訓練同時完成兩個目標。", "證據強度": "獨立實證支持（雙側缺失現象、交叉教育現象存在）／機轉推論加初步實證（兩者組合用於矯正單一運動項目中的不對稱）", "狀態": "現行採用", "已消化": "", "最後更新": "2026-08-23", "相關位置": "01_課表卡（整份課表以單邊主項為主的設計）"}];
+
+/* ================= utils ================= */
+function pad2(n){ return (n<10?'0':'')+n; }
+function dateKey(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function keyToDate(k){ const p=k.split('-').map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function daysBetweenKeys(a,b){ return Math.round((keyToDate(b)-keyToDate(a))/86400000); }
+const MONTHS_EN = {January:0,February:1,March:2,April:3,May:4,June:5,July:6,August:7,September:8,October:9,November:10,December:11};
+function humanToKey(s){
+  const m = String(s).match(/^(\w+)\s+(\d+),\s+(\d+)$/);
+  if(!m) return null;
+  return dateKey(new Date(parseInt(m[3],10), MONTHS_EN[m[1]], parseInt(m[2],10)));
+}
+const DOW_ZH = ['日','一','二','三','四','五','六'];
+function fmtMD(d){ return (d.getMonth()+1)+'/'+d.getDate(); }
+function fmtYMD(d){ return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate()); }
+function ynBool(v){ return v === 'Yes' || v === '是' || v === true; }
+function todayDate(){ return new Date(); }
+function todayKey(){ return dateKey(todayDate()); }
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+function numOrNull(v){ if(v===undefined||v===null||v==='') return null; var n=parseFloat(v); return isNaN(n)?null:n; }
+function escHtml(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+const ICON_CHECK = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>';
+
+/* ================= reference: day types ================= */
+const DAY_TYPES = ['上肢A','上肢B','下肢','輕鬆日','打波','休息'];
+const DAY_TYPE_INFO = {
+  '上肢A': {label:'上肢A · 推主導', short:'上肢A', cls:'dt-上肢A'},
+  '上肢B': {label:'上肢B · 拉主導', short:'上肢B', cls:'dt-上肢B'},
+  '下肢':  {label:'下肢日', short:'下肢', cls:'dt-下肢'},
+  '輕鬆日':{label:'輕鬆日', short:'輕鬆', cls:'dt-輕鬆日'},
+  '打波':  {label:'打波日', short:'打波', cls:'dt-打波'},
+  '休息':  {label:'休息日', short:'休息', cls:'dt-休息'},
+  '測試日':{label:'測試日', short:'測試', cls:'dt-測試日'}
+};
+
+const OVERHEAD_LADDER = [
+  {stage:1,name:'單臂啞鈴過頂支撐 30 秒',cond:'做滿 2 週、30 秒輕鬆、全程無麻'},
+  {stage:2,name:'單臂過頂行走 20 步',cond:'做滿 2 週、無晃動、全程無麻'},
+  {stage:3,name:'半跪單臂啞鈴推舉',cond:'做滿 2 週、無麻、肋骨不外翻'},
+  {stage:4,name:'站姿單臂啞鈴推舉',cond:'到這階＝可以說自己正常做 gym 了'}
+];
+const CUT_ORDER = [
+  {n:1,what:'打波',why:'省最多恢復量、風險降最多'},
+  {n:2,what:'一個上肢日（留一個）',why:'左右差已只有 8%，上肢容量沒想像中緊急'},
+  {n:3,what:'輕鬆日',why:'只值 20 分鐘，最後才砍'},
+  {n:'—',what:'下肢日（永不砍）',why:'腳踝需要的東西＋北歐腿彎舉都在這'},
+  {n:'—',what:'每日 15 分鐘重設（永不砍）',why:'在家做，不需要器材體力'}
+];
+const TERMS = [
+  ['W1～W12','這個計劃的第幾週。W1 = 2026/8/3 那週，W12 = 2026/10/19 那週，跟你人生的第幾週無關'],
+  ['減量週','W4／W8／W12。所有工作組砍一半，重設 100% 保留'],
+  ['測試日','W1／W4／W8／W12 的星期一。當天不做其他訓練，只做 6 項測試'],
+  ['主項 RPE','自覺用力程度。6=還能多做4下／7=還能多做3下／8=還能多做2下／9=還能多做1下／10=做不動。目標：高強度日7-8，輕鬆日6-7'],
+  ['技術性力竭','動作品質一走樣就停，不是做到做不動。硬撐的那幾下，招募的正是你想移除的代償'],
+  ['倒轉呼吸','只用在左手拉的動作：離心（放回去）慢吐 6 秒、向心（拉回來）吸氣 4 秒灌右後背。右手動作維持常規順呼吸'],
+  ['症狀 0-10','0=完全沒感覺／1-3=有一點但不影響動作／4-6=明顯，會讓你調整動作／7-10=嚴重，影響日常'],
+  ['五大狀況 A-E','A=左肩胛翼狀／B=左頸麻（已清零）／C=左髕腱／D=右髖彈響／E=左內收肌']
+];
+const PHASES = [
+  {name:'Phase 1 補洞',weeks:'W1-4',theme:'補下肢、補後肩耐力、修正輕鬆日、開啟過頂階梯',cap:'左 4-5 組／右 3 組',breath:'全面倒轉呼吸',unlock:'—'},
+  {name:'Phase 2 左側力量化',weeks:'W5-8',theme:'解決「控制很好但一直很弱」',cap:'左 4／右 3',breath:'主項改常規支撐，可真的加重；倒轉呼吸退到副項',unlock:'斜板俯臥 Y、Face Pull'},
+  {name:'Phase 3 收斂回球場',weeks:'W9-12',theme:'對稱化＋落地／彈跳重建',cap:'左 4／右 4',breath:'常規為主',unlock:'跳躍與落地訓練'}
+];
+const RED_FLAGS = [
+  '麻感回來，且伴隨握力下降或手部無力','夜間痛醒','手部感覺區域改變','右髖從「有聲」變成「有痛」',
+  '左腳踝：腫脹／跛行／卡住／軟腳／超過 10 天沒好','左髕腱痛強度上升，或開始在日常動作中出現'
+];
+
+/* ================= symptom cross-reference =================
+   Exercise 對應狀況 uses short codes (A/B/C/D/E, 左後肩, 左腳踝, 左小腿, 全部).
+   Knowledge 對應狀況 uses compound labels (A肩胛翼狀, B左頸麻...).
+   normSymCode() maps both into one shared vocabulary so exercise <-> knowledge
+   <-> daily score fields can all cross-link. */
+function normSymCode(raw){
+  var s = String(raw||'').trim();
+  if(!s || s==='—') return null;
+  if(/^A/.test(s)) return 'A';
+  if(/^B/.test(s)) return 'B';
+  if(/^C/.test(s)) return 'C';
+  if(/^D/.test(s)) return 'D';
+  if(/^E/.test(s)) return 'E';
+  if(s.indexOf('左後肩')!==-1) return '左後肩';
+  if(s.indexOf('腳踝')!==-1 || s.indexOf('踝')!==-1) return '左腳踝';
+  if(s.indexOf('小腿')!==-1) return '左小腿';
+  if(s.indexOf('全部')!==-1 || s.indexOf('通用')!==-1) return '通用';
+  return s;
+}
+function symCodesOf(field){
+  return String(field||'').split(',').map(function(s){ return normSymCode(s); }).filter(Boolean);
+}
+const SYMPTOM_META = {
+  'A':    {code:'A',    name:'左肩胛翼狀',        logField:'symA',       color:'#e8c37f'},
+  'B':    {code:'B',    name:'左頸麻／臂神經叢',   logField:null,         color:'#c19bea'},
+  'C':    {code:'C',    name:'左髕腱',            logField:'symC',       color:'#e0a074'},
+  'D':    {code:'D',    name:'右髖彈響',          logField:'symD',       color:'#8fcbdc'},
+  'E':    {code:'E',    name:'左內收肌',          logField:'symE',       color:'#8fc79e'},
+  '左後肩':{code:'左後肩',name:'左後肩／大小圓肌酸', logField:'symShoulder',color:'#e8916f'},
+  '左腳踝':{code:'左腳踝',name:'左腳踝',           logField:'symAnkle',   color:'#d1594c'}
+};
+const SYMPTOM_ORDER = ['A','C','D','E','左後肩','左腳踝','B'];
+function symKmStatus(code){
+  var entry = KNOWLEDGE.find(function(k){ return k['分類']==='症狀解析' && symCodesOf(k['對應狀況']).indexOf(code)!==-1; });
+  return entry ? entry['狀態'] : null;
+}
+function symStatusClass(status){
+  if(status==='已清零') return 'st-ok';
+  if(status==='觀察中') return 'st-watch';
+  return 'st-neutral';
+}
+
+/* ================= derived data ================= */
+const EX_BY_DAYTYPE = {};
+EXERCISES.forEach(function(e){
+  const dt = e['課表日'];
+  if(!EX_BY_DAYTYPE[dt]) EX_BY_DAYTYPE[dt] = [];
+  EX_BY_DAYTYPE[dt].push(e);
+});
+Object.keys(EX_BY_DAYTYPE).forEach(function(dt){
+  EX_BY_DAYTYPE[dt].sort(function(a,b){ return parseInt(a['順序'],10) - parseInt(b['順序'],10); });
+});
+
+const SCHEDULE = {}; // dateKey -> {weekNum,phase,deload,dayType}
+const LOGS_BY_KEY = {}; // dateKey -> raw seed row
+LOGS_SEED.forEach(function(l){
+  const k = humanToKey(l['日期']);
+  if(!k) return;
+  LOGS_BY_KEY[k] = l;
+  SCHEDULE[k] = {
+    weekNum: parseInt(String(l['週次']).replace('W',''),10),
+    phase: l['階段'],
+    deload: l['減量週'] === '是',
+    dayType: l['今日課表']
+  };
+});
+const SCHEDULE_KEYS = Object.keys(SCHEDULE).sort();
+const PLAN_START_KEY = SCHEDULE_KEYS[0];
+const PLAN_END_KEY = SCHEDULE_KEYS[SCHEDULE_KEYS.length-1];
+const TEST_DATE_KEYS = TESTS_SEED.map(function(t){ return t['測試日期']; }).sort();
+const NEXT_TEST_KEY = TEST_DATE_KEYS.find(function(k){ return k >= todayKey(); }) || null;
+
+/* knowledge manual: sort by category (fixed order) then internal 順序 */
+const KM_CATS = ['理論基礎','症狀解析','辦公環境','測試方法','訓練規則','決策紀錄'];
+const KM_CAT_INFO = {
+  '理論基礎':{icon:'📐', desc:'這套系統的底層假設從哪裡來'},
+  '症狀解析':{icon:'🩺', desc:'五大狀況＋左後肩／左腳踝，各自的成因與現狀'},
+  '辦公環境':{icon:'🖥️', desc:'桌面姿勢對整個系統的影響'},
+  '測試方法':{icon:'📏', desc:'每項測試在量什麼、怎麼量才準'},
+  '訓練規則':{icon:'📋', desc:'貫穿整份課表的鐵律與框架'},
+  '決策紀錄':{icon:'🗓️', desc:'每次測試或發現新狀況後，做了什麼改動'}
+};
+KNOWLEDGE.forEach(function(k){ k['順序'] = parseInt(k['順序'],10) || 0; });
+KNOWLEDGE.sort(function(a,b){
+  var ci = KM_CATS.indexOf(a['分類']) - KM_CATS.indexOf(b['分類']);
+  if(ci!==0) return ci;
+  return a['順序'] - b['順序'];
+});
+
+/* ================= storage (Claude artifact storage -> localStorage -> memory) ================= */
+const STORE = {
+  mode: 'memory',
+  async get(key){
+    try{
+      if(typeof window.storage !== 'undefined' && window.storage){
+        const r = await window.storage.get(key);
+        STORE.mode = 'claude';
+        return r ? r.value : null;
+      }
+    }catch(e){ /* fall through */ }
+    try{
+      const v = localStorage.getItem('atr_'+key);
+      if(v !== null) STORE.mode = 'local';
+      return v;
+    }catch(e){ return null; }
+  },
+  async set(key, value){
+    let ok = false;
+    try{
+      if(typeof window.storage !== 'undefined' && window.storage){
+        const r = await window.storage.set(key, value);
+        if(r){ STORE.mode = 'claude'; ok = true; }
+      }
+    }catch(e){ /* fall through */ }
+    if(!ok){
+      try{ localStorage.setItem('atr_'+key, value); STORE.mode = (STORE.mode==='claude')?'claude':'local'; ok = true; }catch(e){}
+    }
+    return ok;
+  }
+};
+
+/* ================= app state ================= */
+const state = {
+  tab: 'today',
+  focusDate: todayKey(),
+  ankleMode: false,
+  dayLogs: {},        // dateKey -> working log object (mutable)
+  testLogs: {},        // dateKey -> working test object (mutable)
+  openEx: {},           // "dateKey#dayType#順序" -> bool (expanded)
+  libFilter: '全部',
+  libSearch: '',
+  kmFilter: '全部',
+  kmSearch: '',
+  kmOpen: {},
+  testOpen: null,       // dateKey of test currently being edited, or null
+  celebrate: null,       // dateKey currently showing the complete-hero pulse animation
+  backupText: '',
+  backupMsg: '',
+  loaded: false,
+  saveTimer: null,
+  // ---- cross-device sync (Supabase) ----
+  supaUrl: '',
+  supaKey: '',
+  supaConnected: false,
+  syncStatus: 'off',     // 'off' | 'ok' | 'pending' | 'err'
+  syncMsg: '',
+  syncFormUrl: '',
+  syncFormKey: ''
+};
+
+function blankFlags(){ return {swell:false, limp:false, giveway:false, over10d:false}; }
+function exKey(dayType, order){ return dayType+'#'+order; }
+
+function seedWorkingLog(k){
+  const seed = LOGS_BY_KEY[k] || null;
+  const sched = SCHEDULE[k] || null;
+  return {
+    dayType: sched ? sched.dayType : (seed ? seed['今日課表'] : null), // resolved/actual type — user can override
+    planType: sched ? sched.dayType : (seed ? seed['今日課表'] : null), // original plan, kept for reference
+    note: seed ? (seed['備註']||'') : '',
+    exDone: {},
+    resetDone: seed ? ynBool(seed['重設完成']) : false,
+    dayDone: seed ? ynBool(seed['完成']) : false,
+    numb: seed ? ynBool(seed['有無麻感']) : false,
+    rpe: seed && seed['主項RPE'] ? String(seed['主項RPE']) : '',
+    symA: seed ? (seed['A 肩胛翼狀']||'') : '',
+    symC: seed ? (seed['C 左髕腱']||'') : '',
+    symD: seed ? (seed['D 右髖彈響']||'') : '',
+    symE: seed ? (seed['E 左內收肌']||'') : '',
+    symShoulder: seed ? (seed['左後肩酸']||'') : '',
+    symAnkle: seed ? (seed['左腳踝']||'') : '',
+    gameMinutes: seed ? (seed['比賽分鐘']||'') : '',
+    screenUp: seed ? ynBool(seed['螢幕已居中抬高']) : false,
+    keyboardDesk: seed ? ynBool(seed['鍵盤在桌面']) : false,
+    flags: blankFlags()
+  };
+}
+function getDayLog(k){
+  if(!state.dayLogs[k]) state.dayLogs[k] = seedWorkingLog(k);
+  if(state.dayLogs[k].dayType === undefined){ // migrate older saved shape safely
+    var sched = SCHEDULE[k];
+    state.dayLogs[k].dayType = sched ? sched.dayType : null;
+    state.dayLogs[k].planType = sched ? sched.dayType : null;
+  }
+  return state.dayLogs[k];
+}
+function resolvedDayType(k){
+  var w = getDayLog(k);
+  return w.dayType || (SCHEDULE[k] ? SCHEDULE[k].dayType : null);
+}
+function seedWorkingTest(k){
+  const seed = (TESTS_SEED.find(function(t){ return t['測試日期']===k; })) || null;
+  const o = {};
+  if(seed){ Object.keys(seed).forEach(function(f){ o[f] = seed[f]; }); }
+  return o;
+}
+function getTestLog(k){
+  if(!state.testLogs[k]) state.testLogs[k] = seedWorkingTest(k);
+  return state.testLogs[k];
+}
+
+/* history of past ankle-related notes, surfaced on the red-flag card so the
+   person doesn't have to scroll back through the calendar to remember when
+   this started — purely reflecting their own written notes back to them. */
+function ankleNoteHistory(){
+  var out = [];
+  SCHEDULE_KEYS.forEach(function(k){
+    var seed = LOGS_BY_KEY[k];
+    var note = seed ? (seed['備註']||'') : '';
+    var override = state.dayLogs[k] ? state.dayLogs[k].note : '';
+    var text = override || note;
+    if(text && (text.indexOf('腳踝')!==-1 || text.indexOf('踝')!==-1 || text.indexOf('腳裸')!==-1)){
+      out.push({k:k, note:text});
+    }
+  });
+  return out;
+}
+
+/* pendingScope/pendingKey let scheduleSave know which single date-entry just
+   changed, so the sync layer can push/merge that one row instead of the
+   whole blob (see SYNC module below). A save with no scope/key (e.g. bulk
+   restore-from-backup) falls back to pushing everything. */
+function scheduleSave(scope, key){
+  if(scope && key){
+    var obj = (scope==='test') ? state.testLogs[key] : state.dayLogs[key];
+    if(obj) obj._updatedAt = new Date().toISOString();
+  } else if(scope==='settings'){
+    state._settingsUpdatedAt = new Date().toISOString();
+  }
+  if(state.saveTimer) clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(function(){ persistAll(scope, key); }, 450);
+}
+async function persistAll(scope, key){
+  try{ await STORE.set('training-log', JSON.stringify(state.dayLogs)); }catch(e){}
+  try{ await STORE.set('test-log', JSON.stringify(state.testLogs)); }catch(e){}
+  try{ await STORE.set('settings', JSON.stringify({ankleMode: state.ankleMode})); }catch(e){}
+  // push to Supabase (offline-queued if unreachable) — see SYNC module
+  try{
+    if(scope==='test' && key){ SYNC.queuePush('atr_test_logs', key, state.testLogs[key]); }
+    else if(scope==='settings'){ SYNC.queuePush('atr_settings', 'main', {ankleMode: state.ankleMode, _updatedAt: state._settingsUpdatedAt}); }
+    else if(key){ SYNC.queuePush('atr_day_logs', key, state.dayLogs[key]); }
+    else { SYNC.queuePushAll(); } // bulk change (e.g. restore-from-backup) with no single key
+  }catch(e){}
+  render();
+}
+async function loadAll(){
+  try{
+    const dl = await STORE.get('training-log');
+    if(dl) state.dayLogs = JSON.parse(dl);
+  }catch(e){}
+  try{
+    const tl = await STORE.get('test-log');
+    if(tl) state.testLogs = JSON.parse(tl);
+  }catch(e){}
+  try{
+    const st = await STORE.get('settings');
+    if(st){ const o = JSON.parse(st); state.ankleMode = !!o.ankleMode; }
+  }catch(e){}
+  try{
+    const cfg = await STORE.get('supa-config');
+    if(cfg){ const o = JSON.parse(cfg); state.supaUrl = o.url||''; state.supaKey = o.key||''; }
+  }catch(e){}
+  state.loaded = true;
+  if(state.supaUrl && state.supaKey){
+    SYNC.init(state.supaUrl, state.supaKey);
+    await SYNC.pullAndMerge();
+  }
+}
+
+/* ================= SYNC (Supabase cross-device sync, offline-first) =================
+   Design: every write happens to localStorage / window.storage immediately
+   (see STORE + persistAll above), so the app is fully usable offline. On top
+   of that, each changed date-entry (one day's log, or one test date) is
+   queued and pushed to Supabase individually — never the whole table at
+   once — so that a phone and a laptop editing different days at the same
+   time merge cleanly instead of one overwriting the other. Conflicts are
+   resolved per-entry by comparing the "_updatedAt" timestamp stored inside
+   that entry's own JSON: newer wins. The pending queue itself lives in
+   localStorage under 'atr_sync_queue' so it survives a refresh or the app
+   being closed mid-sync while offline. */
+const SYNC = {
+  client: null,
+  queue: [],       // [{table, date_key, data, updated_at}]
+  flushing: false,
+
+  init(url, key){
+    try{
+      if(!url || !key || typeof window.supabase === 'undefined') { state.supaConnected=false; return false; }
+      this.client = window.supabase.createClient(url, key);
+      state.supaConnected = true;
+      this.loadQueue();
+      this.flushQueue();
+      return true;
+    }catch(e){ state.supaConnected = false; return false; }
+  },
+
+  loadQueue(){
+    try{ var raw = localStorage.getItem('atr_sync_queue'); this.queue = raw ? JSON.parse(raw) : []; }
+    catch(e){ this.queue = []; }
+  },
+  saveQueue(){
+    try{ localStorage.setItem('atr_sync_queue', JSON.stringify(this.queue)); }catch(e){}
+  },
+
+  queuePush(table, dateKey, dataObj){
+    if(!dataObj) return;
+    if(!dataObj._updatedAt) dataObj._updatedAt = new Date().toISOString();
+    // replace any existing queued write for the same row — only the latest
+    // local version needs to reach the server, not every intermediate edit
+    this.queue = this.queue.filter(function(q){ return !(q.table===table && q.date_key===dateKey); });
+    this.queue.push({table:table, date_key:dateKey, data:dataObj, updated_at:dataObj._updatedAt});
+    this.saveQueue();
+    state.syncStatus = state.supaConnected ? 'pending' : 'off';
+    this.flushQueue();
+  },
+  queuePushAll(){
+    var self = this;
+    Object.keys(state.dayLogs).forEach(function(k){ self.queuePush('atr_day_logs', k, state.dayLogs[k]); });
+    Object.keys(state.testLogs).forEach(function(k){ self.queuePush('atr_test_logs', k, state.testLogs[k]); });
+  },
+
+  async flushQueue(){
+    if(this.flushing) return;
+    if(!state.supaConnected || !this.client) return;
+    if(typeof navigator!=='undefined' && navigator.onLine===false) return;
+    this.flushing = true;
+    try{
+      while(this.queue.length){
+        var item = this.queue[0];
+        try{
+          var res = await this.client.from(item.table).upsert({
+            date_key: item.date_key, data: item.data, updated_at: item.updated_at
+          }, {onConflict:'date_key'});
+          if(res.error) throw res.error;
+          this.queue.shift();
+          this.saveQueue();
+          state.syncStatus = 'ok'; state.syncMsg = '已同步';
+        }catch(e){
+          state.syncStatus = 'err'; state.syncMsg = '同步失敗，會在下次連線時重試：'+(e && e.message ? e.message : '未知錯誤');
+          break; // stop draining; keep remaining items queued for retry
+        }
+      }
+      if(this.queue.length===0 && state.syncStatus!=='err'){ state.syncStatus='ok'; }
+    } finally {
+      this.flushing = false;
+      render();
+    }
+  },
+
+  /* pull every remote row and merge into local state. per-entry: remote
+     wins only if its _updatedAt is strictly newer than local's, AND that
+     local entry isn't itself still sitting unsent in the queue (an unsent
+     local edit must never be silently discarded by an older remote read). */
+  async pullAndMerge(){
+    if(!state.supaConnected || !this.client) return;
+    var self = this;
+    try{
+      var dayRes = await this.client.from('atr_day_logs').select('date_key,data,updated_at');
+      if(!dayRes.error && dayRes.data){
+        dayRes.data.forEach(function(row){
+          if(self.queuedFor('atr_day_logs', row.date_key)) return; // unsent local edit wins
+          var local = state.dayLogs[row.date_key];
+          var remoteTs = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+          var localTs = (local && local._updatedAt) ? new Date(local._updatedAt).getTime() : 0;
+          if(!local || remoteTs > localTs){ state.dayLogs[row.date_key] = row.data; }
+        });
+      }
+      var testRes = await this.client.from('atr_test_logs').select('date_key,data,updated_at');
+      if(!testRes.error && testRes.data){
+        testRes.data.forEach(function(row){
+          if(self.queuedFor('atr_test_logs', row.date_key)) return;
+          var local = state.testLogs[row.date_key];
+          var remoteTs = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+          var localTs = (local && local._updatedAt) ? new Date(local._updatedAt).getTime() : 0;
+          if(!local || remoteTs > localTs){ state.testLogs[row.date_key] = row.data; }
+        });
+      }
+      var setRes = await this.client.from('atr_settings').select('data,updated_at').eq('date_key','main').maybeSingle();
+      if(!setRes.error && setRes.data){
+        var remoteTs2 = setRes.data.updated_at ? new Date(setRes.data.updated_at).getTime() : 0;
+        var localTs2 = state._settingsUpdatedAt ? new Date(state._settingsUpdatedAt).getTime() : 0;
+        if(remoteTs2 > localTs2 && setRes.data.data){ state.ankleMode = !!setRes.data.data.ankleMode; }
+      }
+      try{ await STORE.set('training-log', JSON.stringify(state.dayLogs)); }catch(e){}
+      try{ await STORE.set('test-log', JSON.stringify(state.testLogs)); }catch(e){}
+      state.syncMsg = '已從雲端同步最新資料';
+      render();
+    }catch(e){ /* pull failure is silent — local data still fully usable */ }
+  },
+  queuedFor(table, dateKey){
+    return this.queue.some(function(q){ return q.table===table && q.date_key===dateKey; });
+  }
+};
+
+if(typeof window !== 'undefined'){
+  window.addEventListener('online', function(){ SYNC.flushQueue(); });
+}
+
+/* ---- manual backup / restore (JSON) ----
+   window.storage keeps data safe while this file is opened inside Claude;
+   localStorage keeps it safe on one browser/device if hosted elsewhere
+   (e.g. GitHub Pages). Neither syncs between devices. This export/import
+   is the portable, host-agnostic path: copy the text out, paste it back in
+   anywhere — Claude, GitHub Pages, a new phone, etc. */
+function buildBackupJSON(){
+  return JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    version: 2,
+    dayLogs: state.dayLogs,
+    testLogs: state.testLogs,
+    settings: {ankleMode: state.ankleMode}
+  }, null, 0);
+}
+function downloadBackupFile(){
+  try{
+    var blob = new Blob([buildBackupJSON()], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'asymmetry-training-backup-'+todayKey()+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    return true;
+  }catch(e){ return false; }
+}
+async function copyBackupToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    try{
+      var ta = document.getElementById('backup-ta');
+      if(ta){ ta.focus(); ta.select(); document.execCommand('copy'); return true; }
+    }catch(e2){}
+    return false;
+  }
+}
+function restoreFromBackupText(text){
+  try{
+    var o = JSON.parse(text);
+    if(!o || typeof o !== 'object') throw new Error('bad shape');
+    if(o.dayLogs) state.dayLogs = Object.assign({}, state.dayLogs, o.dayLogs);
+    if(o.testLogs) state.testLogs = Object.assign({}, state.testLogs, o.testLogs);
+    if(o.settings && typeof o.settings.ankleMode==='boolean') state.ankleMode = o.settings.ankleMode;
+    scheduleSave(); // bulk restore, no single date-key — pushes every entry
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ================= phase gates ================= */
+function phase2Unlocked(){
+  var keys = Object.keys(state.testLogs).length ? Object.keys(state.testLogs) : TESTS_SEED.map(function(t){return t['測試日期'];});
+  var filled = keys.map(function(k){ return getTestLog(k); }).filter(function(t){ return t['靠牆滑行 左肋外翻']; });
+  filled.sort(function(a,b){ return a['測試日期'] < b['測試日期'] ? -1 : 1; });
+  if(!filled.length) return false;
+  var latest = filled[filled.length-1];
+  return latest['靠牆滑行 左肋外翻'] === '否';
+}
+function phase3Ready(){
+  var keys = TESTS_SEED.map(function(t){return t['測試日期'];});
+  var filled = keys.map(function(k){ return getTestLog(k); }).filter(function(t){ return t['左手划船8RM kg'] && t['右手划船8RM kg']; });
+  filled.sort(function(a,b){ return a['測試日期'] < b['測試日期'] ? -1 : 1; });
+  if(filled.length < 2) return false;
+  var last2 = filled.slice(-2);
+  return last2.every(function(t){
+    var l = parseFloat(t['左手划船8RM kg']), r = parseFloat(t['右手划船8RM kg']);
+    var diff = r ? Math.abs(r-l)/r*100 : 100;
+    var noNumb = t['EAST 有無麻'] === '無' || t['EAST 有無麻'] === '否';
+    return diff < 10 && noNumb;
+  });
+}
+
+/* ================= small component builders ================= */
+function segHtml(scope, key, field, options, current){
+  var html = '<div class="seg">';
+  options.forEach(function(opt){
+    var sel = (String(current)===String(opt[0])) ? ' sel' : '';
+    html += '<button type="button" class="'+sel.trim()+'" data-action="setSeg" data-scope="'+scope+'" data-key="'+key+'" data-field="'+field+'" data-value="'+escHtml(opt[0])+'">'+escHtml(opt[1])+'</button>';
+  });
+  html += '</div>';
+  return html;
+}
+function scorebandHtml(scope, key, field, current){
+  var html = '<div class="scoreband">';
+  for(var i=0;i<=10;i++){
+    var sel = (String(current)===String(i)) ? ' sel' : '';
+    html += '<button type="button" class="'+sel.trim()+'" data-action="setSeg" data-scope="'+scope+'" data-key="'+key+'" data-field="'+field+'" data-value="'+i+'">'+i+'</button>';
+  }
+  html += '</div>';
+  return html;
+}
+function checkRowHtml(scope, key, field, label, checked){
+  return '<label class="check-row'+(checked?' done':'')+'" data-action="toggleBool" data-scope="'+scope+'" data-key="'+key+'" data-field="'+field+'">'+
+    '<span class="check-box">'+ICON_CHECK+'</span><span class="check-label">'+escHtml(label)+'</span></label>';
+}
+function textFieldHtml(scope, key, field, label, value, opts){
+  opts = opts || {};
+  var type = opts.type || 'text';
+  var ph = opts.placeholder ? ' placeholder="'+escHtml(opts.placeholder)+'"' : '';
+  var step = opts.step ? ' step="'+opts.step+'"' : '';
+  var tag = type==='textarea' ?
+    '<textarea data-action="setText" data-scope="'+scope+'" data-key="'+key+'" data-field="'+field+'"'+ph+'>'+escHtml(value)+'</textarea>' :
+    '<input type="'+type+'" value="'+escHtml(value)+'"'+ph+step+' data-action="setText" data-scope="'+scope+'" data-key="'+key+'" data-field="'+field+'">';
+  return '<div class="field"><label>'+escHtml(label)+'</label>'+tag+(opts.hint?'<div class="hint">'+escHtml(opts.hint)+'</div>':'')+'</div>';
+}
+
+/* red-flag gate — shared by every day type, blocks 下肢/打波 specifically.
+   Also surfaces past notes mentioning the ankle so the person doesn't have
+   to scroll back through the calendar to remember the timeline themselves. */
+function flagGateHtml(scope, key, work, dayType){
+  var flags = work.flags || blankFlags();
+  var anyTrue = flags.swell || flags.limp || flags.giveway || flags.over10d;
+  var blocks = (dayType==='下肢' || dayType==='打波');
+  var html = '<div class="flag-card">';
+  html += '<div class="flag-head"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f0a89e" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg><h3>開始前：左腳踝紅旗檢查（10 秒）</h3></div>';
+  html += '<div class="flag-items">';
+  html += checkRowHtml(scope,key,'flags.swell','有腫脹', flags.swell);
+  html += checkRowHtml(scope,key,'flags.limp','走路會避痛（跛）', flags.limp);
+  html += checkRowHtml(scope,key,'flags.giveway','腳踝出現「卡住」或「軟腳」的瞬間', flags.giveway);
+  html += checkRowHtml(scope,key,'flags.over10d','距上次挫傷超過 10 天，狀況還是一樣', flags.over10d);
+  html += '</div>';
+  if(anyTrue){
+    html += '<div class="flag-stop show">'+(blocks ? '打勾任一項 → 今天不做下肢、不打波，去看骨科或物理治療師。' : '打勾任一項 → 先不做下肢或打波動作，其餘照常，並儘快讓骨科或物理治療師看過。')+'</div>';
+  }
+  var hist = ankleNoteHistory();
+  if(hist.length){
+    html += '<div class="flag-history"><b style="color:#f0a89e">相關歷史記錄：</b>'+hist.map(function(h){
+      var d = keyToDate(h.k);
+      return fmtMD(d)+' 「'+escHtml(h.note)+'」';
+    }).join('　·　')+'</div>';
+  }
+  html += '</div>';
+  return {html:html, blocked: anyTrue && blocks};
+}
+
+/* the "let me decide" control — free choice of today's day type, defaulting
+   to (but never locked to) the calendar's suggestion. */
+function dayTypePickerHtml(k, work, sched){
+  var html = '<div class="daytype-picker">';
+  var opts = DAY_TYPES.slice();
+  if(sched && sched.dayType==='測試日' && opts.indexOf('測試日')===-1) opts.push('測試日');
+  opts.forEach(function(dt){
+    var isSel = (work.dayType === dt);
+    var isPlan = (sched && sched.dayType === dt);
+    html += '<button type="button" class="daytype-pill'+(isSel?' sel':'')+'" data-action="setDayType" data-key="'+k+'" data-value="'+dt+'">';
+    if(isPlan) html += '<span class="dtp-dot"></span>';
+    html += '<span class="dtp-name">'+escHtml(DAY_TYPE_INFO[dt]?DAY_TYPE_INFO[dt].short:dt)+'</span>';
+    html += '<span class="dtp-plan">'+(isPlan?'課表建議':'\u00A0')+'</span>';
+    html += '</button>';
+  });
+  html += '</div>';
+  return html;
+}
+function overrideNoteHtml(k, work, sched){
+  if(!sched || work.dayType === sched.dayType) return '';
+  var planLabel = DAY_TYPE_INFO[sched.dayType] ? DAY_TYPE_INFO[sched.dayType].short : sched.dayType;
+  var curLabel = DAY_TYPE_INFO[work.dayType] ? DAY_TYPE_INFO[work.dayType].short : work.dayType;
+  return '<div class="override-note"><span>課表原建議 <b style="color:var(--ink)">'+escHtml(planLabel)+'</b>　你改成了 <b style="color:var(--right-strong)">'+escHtml(curLabel)+'</b></span><button type="button" data-action="resetDayType" data-key="'+k+'">恢復建議</button></div>';
+}
+
+/* one-tap "did the whole session" button */
+function completeHeroHtml(k, work, allDone, totalCount){
+  if(work.dayDone){
+    return '<button type="button" class="complete-hero done'+(state.celebrate===k?' pulse':'')+'" data-action="toggleDayDone" data-key="'+k+'">'+
+      '<svg class="ch-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>今天已完成 · 點一下取消</button>';
+  }
+  var label = totalCount ? '一鍵完成今天全部項目' : '標記今天完成';
+  return '<button type="button" class="complete-hero" data-action="completeAll" data-key="'+k+'">'+
+    '<svg class="ch-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>'+label+'</button>';
+}
+
+/* tip card sourced from the guide / knowledge base, shown at the moment it's relevant */
+function tipCardHtml(text, opts){
+  opts = opts || {};
+  var cls = opts.amber ? ' amber' : '';
+  var ico = opts.icon || '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.6 10.8c.5.4.6 1 .6 1.6v.1h6v-.1c0-.6.1-1.2.6-1.6A6 6 0 0012 3z"/></svg>';
+  var html = '<div class="tip-card'+cls+'"><span class="tip-ico">'+ico+'</span><span>'+text;
+  if(opts.linkCode){
+    html += '<span class="tip-link" data-action="gotoKnowledgeSym" data-code="'+escHtml(opts.linkCode)+'">了解更多 →</span>';
+  }
+  html += '</span></div>';
+  return html;
+}
+const DAY_TIP = {
+  '下肢': '下肢日是全套系統裡<b>永不砍</b>的一天：左腳踝需要的比目魚等長、腳趾屈肌，加上傷害預防價值最高的北歐腿彎舉，都排在這天。',
+  '打波': '打波不是排定的訓練，是你的生活選擇——它按下肢高強度日計量恢復預算。<b>賽後 30 分鐘內</b>的那次重設，是整個系統裡價值最高的 15 分鐘。',
+  '輕鬆日': '這天的目的是<b>高頻率接觸</b>，不是刺激。做完清單就收工，RPE 6-7，加動作就不是輕鬆日了。',
+  '休息': '休息日只做 ⓪ 重設。真的沒空？最低生存版：仰躺 90/90 呼吸 5 組 × 5 呼吸，5 分鐘就好。',
+  '測試日': '今天只做 6 項客觀測試，不做其他訓練。腰一彎就停、麻就記錄——誠實比數字好看更重要。',
+  '上肢A': '左側容量目前調到 4-5 組（右側 3 組）。8/3 測得左右差僅 8.3%，低於 10% 門檻，但規則是連續兩次都 <10% 才調降左側容量。',
+  '上肢B': '左手拉的動作全面採用<b>倒轉呼吸</b>：放回去慢吐 6 秒、拉回來吸氣 4 秒灌右後背。右手動作維持常規順呼吸。'
+};
+
+/* exercise card — composite-keyed by (dayType#order) so switching the day
+   type never mixes up progress between two different exercise lists on the
+   same date. */
+function exerciseCardHtml(ex, dk, work){
+  var dt = ex['課表日'];
+  var order = String(ex['順序']);
+  var ek = exKey(dt, order);
+  var openKey = dk+'#'+ek;
+  var isOpen = !!state.openEx[openKey];
+  var isDone = !!work.exDone[ek];
+  var locked = (ex['階段'] && ex['階段'] !== '全期' && !phase2Unlocked());
+  var cat = ex['類別'];
+  var catTag = cat==='主項' ? '<span class="tag main">主項</span>' : (cat==='副項' ? '<span class="tag assist">副項</span>' : (cat==='重設' ? '<span class="tag reset">重設</span>' : ''));
+
+  var html = '<div class="ex-card'+(isOpen?' open':'')+(isDone?' done':'')+(locked?' locked':'')+'">';
+  html += '<div class="ex-top" data-action="toggleExOpen" data-exkey="'+openKey+'">';
+  html += '<span class="ex-num">'+ex['順序']+'</span>';
+  if(!locked){
+    html += '<span class="ex-check" data-action="toggleExDone" data-scope="day" data-key="'+dk+'" data-exkey="'+ek+'"><span class="ex-check-box">'+ICON_CHECK+'</span></span>';
+  } else {
+    html += '<span class="ex-check"><span class="ex-check-box" style="opacity:.4"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></span></span>';
+  }
+  html += '<div class="ex-body"><div class="ex-name">'+escHtml(ex['動作名稱'])+'</div>';
+  html += '<div class="ex-tags">'+catTag;
+  if(ex['左邊'] && ex['左邊']!=='—') html += '<span class="tag" style="background:var(--left-bg);color:var(--left-strong)">左 '+escHtml(ex['左邊'])+'</span>';
+  if(ex['右邊'] && ex['右邊']!=='—') html += '<span class="tag" style="background:var(--right-bg);color:var(--right-strong)">右 '+escHtml(ex['右邊'])+'</span>';
+  html += '</div></div>';
+  html += '<svg class="ex-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>';
+  html += '</div>';
+
+  html += '<div class="ex-detail">';
+  html += '<div class="ex-cue">'+escHtml(ex['執行要點'])+'</div>';
+  html += '<div class="ex-meta">';
+  if(ex['起始設定']) html += '<div><b>起始設定：</b>'+escHtml(ex['起始設定'])+'</div>';
+  if(ex['呼吸']) html += '<div><b>呼吸：</b>'+escHtml(ex['呼吸'])+'</div>';
+  if(ex['模組']) html += '<div><b>模組：</b>'+escHtml(ex['模組'])+'</div>';
+  if(ex['進階條件']) html += '<div><b>進階：</b>'+escHtml(ex['進階條件'])+'</div>';
+  html += '</div>';
+  if(ex['退階／紅旗'] && ex['退階／紅旗']!=='—') html += '<div class="ex-flagline">⚑ '+escHtml(ex['退階／紅旗'])+'</div>';
+  var ankleField = ex['左腳踝有事時'];
+  if(state.ankleMode && ankleField && ankleField.indexOf('照做')!==0){
+    html += '<div class="ex-anklenote">🦶 左腳踝有事版：'+escHtml(ankleField)+'</div>';
+  }
+  if(locked){
+    html += '<div class="ex-lockline">🔒 Phase 2 才解封 — 靠牆滑行「左肋外翻」由「是」轉「否」才解封（目前最新一次測試尚未達標）</div>';
+  }
+  var codes = symCodesOf(ex['對應狀況']);
+  if(codes.length){
+    html += '<div class="ex-symlink">';
+    codes.forEach(function(c){
+      var meta = SYMPTOM_META[c];
+      var lab = meta ? meta.name : c;
+      html += '<span class="tag sym" data-action="gotoKnowledgeSym" data-code="'+escHtml(c)+'">為什麼練 '+escHtml(lab)+' →</span>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+/* ================= chart builders (hand-rolled SVG, no dependency) ================= */
+function lineChartSvg(seriesList, opts){
+  opts = opts || {};
+  var W = opts.width||320, H = opts.height||140, P = {l:24,r:10,t:12,b:20};
+  var n = 0;
+  seriesList.forEach(function(s){ if(s.points.length>n) n = s.points.length; });
+  if(n===0) return '';
+  var allY = [];
+  seriesList.forEach(function(s){ s.points.forEach(function(p){ if(p.y!==null && p.y!==undefined) allY.push(p.y); }); });
+  if(!allY.length) return '';
+  var yMin = opts.yMin!==undefined ? opts.yMin : Math.min.apply(null,allY);
+  var yMax = opts.yMax!==undefined ? opts.yMax : Math.max.apply(null,allY);
+  if(opts.yMin===undefined) yMin = Math.min(yMin,0);
+  if(yMax===yMin) yMax = yMin+1;
+  function xPos(i){ return P.l + (n<=1?((W-P.l-P.r)/2):(i/(n-1))*(W-P.l-P.r)); }
+  function yPos(v){ return P.t + (1-(v-yMin)/(yMax-yMin))*(H-P.t-P.b); }
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;overflow:visible">';
+  for(var g=0; g<=2; g++){
+    var gy = P.t + g*(H-P.t-P.b)/2;
+    svg += '<line x1="'+P.l+'" y1="'+gy.toFixed(1)+'" x2="'+(W-P.r)+'" y2="'+gy.toFixed(1)+'" stroke="var(--line)" stroke-width="1"/>';
+  }
+  if(opts.thresholdY!==undefined && opts.thresholdY!==null){
+    var ty = yPos(opts.thresholdY);
+    svg += '<line x1="'+P.l+'" y1="'+ty.toFixed(1)+'" x2="'+(W-P.r)+'" y2="'+ty.toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="3,3" opacity=".6"/>';
+  }
+  seriesList.forEach(function(s){
+    var segPts = [];
+    s.points.forEach(function(p,i){
+      if(p.y===null||p.y===undefined) return;
+      segPts.push(xPos(i).toFixed(1)+','+yPos(p.y).toFixed(1));
+    });
+    if(segPts.length>1){
+      svg += '<polyline points="'+segPts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    s.points.forEach(function(p,i){
+      if(p.y===null||p.y===undefined) return;
+      svg += '<circle cx="'+xPos(i).toFixed(1)+'" cy="'+yPos(p.y).toFixed(1)+'" r="3.2" fill="'+s.color+'"/>';
+    });
+  });
+  if(opts.xLabels){
+    opts.xLabels.forEach(function(lab,i){
+      if(!lab) return;
+      var anchor = (i===0) ? 'start' : (i===opts.xLabels.length-1 ? 'end' : 'middle');
+      svg += '<text x="'+xPos(i).toFixed(1)+'" y="'+(H-4)+'" font-size="9.5" fill="var(--ink-faint)" text-anchor="'+anchor+'" font-family="Space Grotesk, sans-serif">'+escHtml(lab)+'</text>';
+    });
+  }
+  svg += '</svg>';
+  return svg;
+}
+function barRowHtml(label, value, max, color, valText){
+  var pct = max>0 ? clamp(value/max*100,0,100) : 0;
+  return '<div class="bar-chart-row"><span class="bcr-label">'+escHtml(label)+'</span><span class="bcr-track"><span class="bcr-fill" style="width:'+pct+'%;background:'+color+'"></span></span><span class="bcr-val">'+escHtml(valText!==undefined?valText:value)+'</span></div>';
+}
+
+/* ================= TODAY tab ================= */
+function ankleOverdueDays(){
+  var hist = ankleNoteHistory();
+  if(!hist.length) return null;
+  return daysBetweenKeys(hist[0].k, todayKey());
+}
+
+function renderToday(){
+  var k = state.focusDate;
+  var d = keyToDate(k);
+  var sched = SCHEDULE[k];
+  var work = getDayLog(k);
+  var isToday = (k === todayKey());
+  var parts = [];
+
+  parts.push('<div class="particle-hero" id="particle-human-slot" aria-hidden="true"></div>');
+
+  parts.push('<div class="datenav">');
+  parts.push('<button class="iconbtn" data-action="prevDay" aria-label="前一天"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg></button>');
+  parts.push('<div class="center"><div class="dow">'+d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate())+' 星期'+DOW_ZH[d.getDay()]+(isToday?'　·　今天':'')+'</div>');
+  if(sched){
+    parts.push('<div class="dt">'+escHtml(DAY_TYPE_INFO[work.dayType] ? DAY_TYPE_INFO[work.dayType].label : work.dayType)+'</div>');
+  } else {
+    parts.push('<div class="dt muted" style="font-size:15px">'+(k < PLAN_START_KEY ? '計畫尚未開始（W1 從 8/3 起）' : '12 週計畫已完成 🎉')+'</div>');
+  }
+  parts.push('</div>');
+  parts.push('<button class="iconbtn" data-action="nextDay" aria-label="後一天"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg></button>');
+  parts.push('</div>');
+  if(!isToday){
+    parts.push('<div class="today-jump"><button data-action="jumpToday">回到今天（'+fmtMD(todayDate())+'）</button></div>');
+  }
+
+  if(!sched){
+    parts.push('<div class="card" style="text-align:center;color:var(--ink-dim)">這個日期不在 12 週計畫範圍內（'+PLAN_START_KEY+' ～ '+PLAN_END_KEY+'）。</div>');
+    return parts.join('');
+  }
+
+  // ankle overdue nudge — only on the real "today" screen, using their own logged dates
+  if(isToday){
+    var overdue = ankleOverdueDays();
+    if(overdue !== null && overdue >= 10){
+      parts.push(tipCardHtml('日誌記錄左腳踝的問題已經 <b>'+overdue+' 天</b>。課表卡自己寫的紅旗規則是：超過 10 天沒好 → 別再自行處理，去看骨科或物理治療師。下面的紅旗檢查框，今天誠實勾一次。', {amber:true, icon:'⚑'}));
+    }
+  }
+  // test-day proximity notice
+  if(NEXT_TEST_KEY && isToday){
+    var daysToTest = daysBetweenKeys(todayKey(), NEXT_TEST_KEY);
+    if(daysToTest===0){ parts.push(tipCardHtml('今天就是排定的測試日（'+fmtMD(keyToDate(NEXT_TEST_KEY))+'）。')); }
+    else if(daysToTest>0 && daysToTest<=1){ parts.push(tipCardHtml('明天（'+fmtMD(keyToDate(NEXT_TEST_KEY))+'）是排定的測試日，今天訓練後及早休息。')); }
+  }
+
+  parts.push('<div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">');
+  parts.push('<span class="badge-day '+(DAY_TYPE_INFO[work.dayType]?DAY_TYPE_INFO[work.dayType].cls:'')+'">'+escHtml(DAY_TYPE_INFO[work.dayType]?DAY_TYPE_INFO[work.dayType].short:work.dayType)+'</span>');
+  parts.push('<span class="pill" style="background:var(--surface-2);color:var(--ink-dim)">W'+sched.weekNum+'</span>');
+  parts.push('<span class="pill" style="background:var(--surface-2);color:var(--ink-dim)">'+escHtml(sched.phase)+'</span>');
+  if(work.dayDone){ parts.push('<span class="pill" style="background:var(--ok-bg);color:var(--ok)">✓ 已完成</span>'); }
+  parts.push('</div>');
+
+  parts.push(dayTypePickerHtml(k, work, sched));
+  parts.push(overrideNoteHtml(k, work, sched));
+
+  if(sched.deload){
+    parts.push('<div class="banner deload">📉 本週為減量週：所有工作組砍一半，重設 100% 保留。讓適應真的長出來。</div>');
+  }
+
+  var fg = flagGateHtml('day', k, work, work.dayType);
+  parts.push(fg.html);
+
+  if(work.dayType === '測試日'){
+    var isRealTestDay = (sched.dayType === '測試日');
+    parts.push('<div class="section-title">測試日</div>');
+    parts.push('<div class="card" style="text-align:center;">');
+    parts.push('<div style="font-size:14px;color:var(--ink-dim);margin-bottom:14px;line-height:1.7">'+(isRealTestDay ? '今天不做其他訓練，只做 6 項客觀測試，約 30 分鐘。做完 ⓪ 重設全套暖身後開始。' : '今天不是排定的測試日（下一次排定：'+(NEXT_TEST_KEY?fmtMD(keyToDate(NEXT_TEST_KEY)):'—')+'），但你仍可以額外記一次。')+'</div>');
+    parts.push('<button class="btn primary block" data-action="gotoTest" data-key="'+k+'">前往測試記錄填寫 →</button>');
+    parts.push('</div>');
+    renderQuickLogTail(parts, k, work, sched);
+    return parts.join('');
+  }
+
+  if(fg.blocked){
+    parts.push('<div class="card" style="text-align:center;color:var(--ink-dim);font-size:13.5px;line-height:1.8">今天先不排 '+escHtml(work.dayType)+' 的動作。做 ⓪ 每日重設就好，其餘等腳踝評估後再說。</div>');
+    var dayExAll = EX_BY_DAYTYPE[work.dayType] || [];
+    var resetOnly = dayExAll.filter(function(e){ return e['類別']==='重設'; });
+    parts.push('<div class="section-title">⓪ 每日重設</div>');
+    resetOnly.forEach(function(e){ parts.push(exerciseCardHtml(e, k, work)); });
+    renderQuickLogTail(parts, k, work, sched);
+    return parts.join('');
+  }
+
+  var dayEx = EX_BY_DAYTYPE[work.dayType] || [];
+  var resetItems = dayEx.filter(function(e){ return e['類別']==='重設'; });
+  var mainItems = dayEx.filter(function(e){ return e['類別']!=='重設'; });
+
+  var totalCount = resetItems.length + mainItems.length;
+  var doneCount = 0;
+  resetItems.concat(mainItems).forEach(function(e){ if(work.exDone[exKey(e['課表日'],e['順序'])]) doneCount++; });
+  var allDone = totalCount>0 && doneCount===totalCount;
+  parts.push('<div class="progress-wrap"><div class="progress-bar" style="width:'+(totalCount?Math.round(doneCount/totalCount*100):0)+'%"></div></div>');
+  parts.push('<div class="tiny muted" style="margin-bottom:14px">已完成 '+doneCount+' / '+totalCount+' 項</div>');
+
+  parts.push(completeHeroHtml(k, work, allDone, totalCount));
+
+  if(DAY_TIP[work.dayType]){
+    var tipLinkCode = (work.dayType==='上肢A') ? 'A' : (work.dayType==='上肢B' ? 'A' : null);
+    parts.push(tipCardHtml(DAY_TIP[work.dayType], {linkCode:tipLinkCode}));
+  }
+
+  parts.push('<div class="section-title" style="justify-content:space-between">');
+  parts.push('<span>'+(resetItems.length ? '⓪ 每日重設' : '')+'</span>');
+  parts.push('<span class="row" style="gap:8px"><span class="tiny" style="color:var(--right-strong)">🦶 左腳踝有事版</span><span class="toggle'+(state.ankleMode?' on':'')+'" data-action="toggleAnkle"><span class="knob"></span></span></span>');
+  parts.push('</div>');
+  resetItems.forEach(function(e){ parts.push(exerciseCardHtml(e, k, work)); });
+
+  if(mainItems.length){
+    parts.push('<div class="section-title">'+escHtml(DAY_TYPE_INFO[work.dayType]?DAY_TYPE_INFO[work.dayType].label:work.dayType)+' 菜單</div>');
+    mainItems.forEach(function(e){ parts.push(exerciseCardHtml(e, k, work)); });
+  }
+
+  if(work.dayType==='打波'){
+    parts.push('<div class="card" style="font-size:13px;color:var(--ink-dim);line-height:1.8">賽後 30 分鐘內立刻再做一次完整重設——這是打波日價值最高的一項，因為模式剛被大量寫入。</div>');
+  }
+  if(work.dayType==='休息'){
+    parts.push('<div class="card" style="font-size:13px;color:var(--ink-dim);line-height:1.8">真的沒空？最低生存版：仰躺 90/90 呼吸 5 組 × 5 呼吸，5 分鐘就好。</div>');
+  }
+
+  renderQuickLogTail(parts, k, work, sched);
+  return parts.join('');
+}
+
+function renderQuickLogTail(parts, k, work, sched){
+  parts.push('<div class="section-title">今天的紀錄</div>');
+  parts.push('<div class="card">');
+  parts.push('<div class="field"><label>主項 RPE</label>'+segHtml('day',k,'rpe',[['6','6'],['7','7'],['8','8'],['9','9'],['10','10']],work.rpe)+'</div>');
+  if(work.dayType==='打波'){
+    parts.push(textFieldHtml('day',k,'gameMinutes','比賽分鐘',work.gameMinutes,{type:'number',placeholder:'例如 25'}));
+  }
+  parts.push('<div class="field"><label>有無麻感</label>'+checkRowHtml('day',k,'numb','出現麻感',work.numb)+'</div>');
+  parts.push('<hr class="hair">');
+  parts.push('<div class="tiny muted" style="margin-bottom:10px">六項症狀 0–10（0 = 完全沒感覺，10 = 嚴重影響日常）</div>');
+  [['symA','A 肩胛翼狀'],['symC','C 左髕腱'],['symD','D 右髖彈響'],['symE','E 左內收肌'],['symShoulder','左後肩酸'],['symAnkle','左腳踝']].forEach(function(pair){
+    parts.push('<div class="field"><label>'+pair[1]+'</label>'+scorebandHtml('day',k,pair[0],work[pair[0]])+'</div>');
+  });
+  parts.push('<hr class="hair">');
+  parts.push(checkRowHtml('day',k,'screenUp','螢幕已居中抬高（Priority 0 桌面改造）',work.screenUp));
+  parts.push(checkRowHtml('day',k,'keyboardDesk','鍵盤在桌面',work.keyboardDesk));
+  parts.push('<hr class="hair">');
+  parts.push(textFieldHtml('day',k,'note','備註',work.note,{type:'textarea',placeholder:'選填'}));
+  parts.push('</div>');
+  parts.push('<button class="btn '+(work.dayDone?'ghost':'primary')+' block" data-action="toggleDayDone" data-key="'+k+'" style="margin-bottom:6px">'+(work.dayDone?'✓ 今天已標記完成（點一下取消）':'標記今天完成（不勾選動作也可以）')+'</button>');
+}
+
+/* ================= CALENDAR tab ================= */
+function groupByWeek(){
+  var byWeek = {};
+  SCHEDULE_KEYS.forEach(function(k){
+    var w = SCHEDULE[k].weekNum;
+    if(!byWeek[w]) byWeek[w] = [];
+    byWeek[w].push(k);
+  });
+  return byWeek;
+}
+function renderCalendar(){
+  var parts = [];
+  var tKey = todayKey();
+
+  var completed = 0, pastCount = 0;
+  SCHEDULE_KEYS.forEach(function(k){
+    if(k <= tKey){
+      pastCount++;
+      var w = getDayLog(k);
+      if(w.dayDone) completed++;
+    }
+  });
+  parts.push('<div class="statstrip">');
+  parts.push('<div class="statbox"><div class="sval">'+completed+' / '+pastCount+'</div><div class="slabel">已完成天數</div></div>');
+  var curSched = SCHEDULE[tKey];
+  parts.push('<div class="statbox"><div class="sval">'+(curSched?('W'+curSched.weekNum):'—')+'</div><div class="slabel">目前週次</div></div>');
+  parts.push('<div class="statbox"><div class="sval">'+(curSched?curSched.phase.replace(/Phase (\d).*/,'P$1'):'—')+'</div><div class="slabel">目前階段</div></div>');
+  parts.push('</div>');
+
+  var byWeek = groupByWeek();
+  var weekNums = Object.keys(byWeek).map(Number).sort(function(a,b){return a-b;});
+  var curWeek = curSched ? curSched.weekNum : weekNums[0];
+
+  weekNums.forEach(function(wn){
+    var keys = byWeek[wn];
+    parts.push('<div class="week-block">');
+    parts.push('<div class="week-head"><span class="wname">W'+wn+(SCHEDULE[keys[0]].deload?' · 減量週':'')+'</span><span class="wphase">'+escHtml(SCHEDULE[keys[0]].phase)+'</span></div>');
+    parts.push('<div class="day-list">');
+    keys.forEach(function(k){
+      var d = keyToDate(k);
+      var sc = SCHEDULE[k];
+      var isToday = (k === tKey);
+      var isFuture = (k > tKey);
+      var w = getDayLog(k);
+      var actualType = w.dayType || sc.dayType;
+      var swapped = actualType !== sc.dayType;
+      var statusCls = isFuture ? 'future' : (w.dayDone ? 'done' : '');
+      parts.push('<div class="day-item'+(isToday?' istoday':'')+'" data-action="gotoDay" data-key="'+k+'">');
+      parts.push('<div class="ddate"><div class="dnum">'+d.getDate()+'</div><div class="ddow">週'+DOW_ZH[d.getDay()]+'</div></div>');
+      parts.push('<div class="dinfo"><span class="badge-day '+(DAY_TYPE_INFO[actualType]?DAY_TYPE_INFO[actualType].cls:'')+'">'+escHtml(DAY_TYPE_INFO[actualType]?DAY_TYPE_INFO[actualType].short:actualType)+'</span>'+
+        (swapped ? '<div class="dswap">原計畫 '+escHtml(DAY_TYPE_INFO[sc.dayType]?DAY_TYPE_INFO[sc.dayType].short:sc.dayType)+'</div>' : (w.note?'<div class="dnote">'+escHtml(w.note)+'</div>':'')));
+      parts.push('</div>');
+      parts.push('<div class="dstatus '+statusCls+'" data-action="toggleDayDone" data-key="'+k+'" role="button" aria-label="標記'+k+'完成">'+(w.dayDone?ICON_CHECK:'')+'</div>');
+      parts.push('</div>');
+    });
+    parts.push('</div></div>');
+  });
+
+  return parts.join('');
+}
+
+/* ================= STATS tab ================= */
+function computeStreaks(){
+  var keys = SCHEDULE_KEYS.filter(function(k){ return k<=todayKey(); });
+  var longest=0, run=0;
+  keys.forEach(function(k){
+    var w=getDayLog(k);
+    if(w.dayDone){ run++; if(run>longest) longest=run; } else { run=0; }
+  });
+  var cs=0;
+  for(var i=keys.length-1;i>=0;i--){
+    var w=getDayLog(keys[i]);
+    if(w.dayDone) cs++; else break;
+  }
+  return {current:cs, longest:longest};
+}
+function computeAdherence(){
+  var keys = SCHEDULE_KEYS.filter(function(k){ return k<=todayKey(); });
+  var done = keys.filter(function(k){ return getDayLog(k).dayDone; }).length;
+  return {done:done, total:keys.length, pct: keys.length? Math.round(done/keys.length*100):0};
+}
+function computeByDayType(){
+  var agg = {};
+  DAY_TYPES.concat(['測試日']).forEach(function(t){ agg[t]={done:0,total:0}; });
+  SCHEDULE_KEYS.filter(function(k){ return k<=todayKey(); }).forEach(function(k){
+    var sc=SCHEDULE[k]; var w=getDayLog(k);
+    var t = w.dayType || sc.dayType;
+    if(!agg[t]) agg[t]={done:0,total:0};
+    agg[t].total++;
+    if(w.dayDone) agg[t].done++;
+  });
+  return agg;
+}
+function computeWeeklyAdherence(){
+  var byWeek = groupByWeek();
+  var weekNums = Object.keys(byWeek).map(Number).sort(function(a,b){return a-b;});
+  var tKey = todayKey();
+  var out = [];
+  weekNums.forEach(function(wn){
+    var keys = byWeek[wn].filter(function(k){ return k<=tKey; });
+    if(!keys.length) return;
+    var done = keys.filter(function(k){ return getDayLog(k).dayDone; }).length;
+    out.push({week:wn, done:done, total:keys.length});
+  });
+  return out;
+}
+function computeBballLoad(){
+  var games=0, minutes=0;
+  SCHEDULE_KEYS.filter(function(k){ return k<=todayKey(); }).forEach(function(k){
+    var w = getDayLog(k);
+    var m = numOrNull(w.gameMinutes);
+    if(m!==null && m>0){ games++; minutes+=m; }
+  });
+  return {games:games, minutes:minutes};
+}
+function computeAnkleFlagDays(){
+  var out = [];
+  SCHEDULE_KEYS.forEach(function(k){
+    var w = state.dayLogs[k];
+    if(!w || !w.flags) return;
+    if(w.flags.swell||w.flags.limp||w.flags.giveway||w.flags.over10d) out.push(k);
+  });
+  return out;
+}
+function symptomSeries(code){
+  var meta = SYMPTOM_META[code];
+  if(!meta || !meta.logField) return [];
+  var pts=[];
+  SCHEDULE_KEYS.forEach(function(k){
+    var w = getDayLog(k);
+    var v = numOrNull(w[meta.logField]);
+    if(v!==null) pts.push({k:k, v:v});
+  });
+  return pts;
+}
+function symptomLatest(code){
+  if(code==='B'){
+    var keys = TEST_DATE_KEYS.filter(function(k){ return getTestLog(k)['EAST 有無麻']; });
+    if(!keys.length) return {display:'—', dateLabel:'尚無紀錄', trend:null, status:symKmStatus('B')};
+    var lk = keys[keys.length-1];
+    var numb = getTestLog(lk)['EAST 有無麻'];
+    var neg = (numb==='無'||numb==='否');
+    return {display: neg?'無麻':'有麻', dateLabel:fmtMD(keyToDate(lk)), trend:null, status:symKmStatus('B')};
+  }
+  var pts = symptomSeries(code);
+  if(!pts.length) return {display:'—', dateLabel:'尚無紀錄', trend:null, status:symKmStatus(code)};
+  var last = pts[pts.length-1];
+  var prev = pts.length>1 ? pts[pts.length-2] : null;
+  return {display:String(last.v), dateLabel:fmtMD(keyToDate(last.k)), trend: prev!==null?(last.v-prev.v):null, status:symKmStatus(code)};
+}
+function symptomCardHtml(code){
+  var meta = SYMPTOM_META[code];
+  var latest = symptomLatest(code);
+  var status = latest.status;
+  var statusCls = symStatusClass(status);
+  var trendHtml = '';
+  if(latest.trend!==null && latest.trend!==undefined){
+    if(latest.trend<0) trendHtml = '<span class="trend arrow-ok">▼'+Math.abs(latest.trend)+'</span>';
+    else if(latest.trend>0) trendHtml = '<span class="trend arrow-bad">▲'+latest.trend+'</span>';
+    else trendHtml = '<span class="trend muted">–0</span>';
+  }
+  var isNum = latest.display!=='有麻' && latest.display!=='無麻';
+  return '<div class="sym-card" data-action="gotoKnowledgeSym" data-code="'+escHtml(code)+'">'+
+    '<div class="sc-top"><span class="sc-code">'+escHtml(code)+'</span>'+(status?'<span class="sc-status '+statusCls+'">'+escHtml(status)+'</span>':'')+'</div>'+
+    '<div class="sc-name">'+escHtml(meta.name)+'</div>'+
+    '<div class="sc-score"><span class="num" style="color:'+meta.color+'">'+escHtml(latest.display)+'</span>'+(isNum&&latest.display!=='—'?'<span class="unit">/10</span>':'')+trendHtml+'</div>'+
+    '<div class="sc-date">'+escHtml(latest.dateLabel)+'</div>'+
+  '</div>';
+}
+const HEX = {left:'#8fcbdc', right:'#e8c37f', ok:'#6ba077', danger:'#d1594c', know:'#a98ee8', dim:'#9aa1aa'};
+const DAYTYPE_HEX = {'上肢A':'#e8c37f','上肢B':'#e8c37f','下肢':'#e0a074','輕鬆日':'#8fc79e','打波':'#e8916f','休息':'#9aa1aa','測試日':'#c19bea'};
+
+function buildSymptomChartSeries(codes){
+  var dateSet = {};
+  codes.forEach(function(c){ symptomSeries(c).forEach(function(p){ dateSet[p.k]=true; }); });
+  var dates = Object.keys(dateSet).sort();
+  var series = codes.map(function(c){
+    var meta = SYMPTOM_META[c];
+    var byDate = {};
+    symptomSeries(c).forEach(function(p){ byDate[p.k]=p.v; });
+    return { label: meta.name, color: meta.color, points: dates.map(function(dk){ return {y: byDate[dk]!==undefined?byDate[dk]:null}; }) };
+  });
+  return {series:series, dates:dates};
+}
+function sparseXLabels(dates){
+  var xLabels = dates.map(function(){ return ''; });
+  if(xLabels.length){ xLabels[0]=fmtMD(keyToDate(dates[0])); if(xLabels.length>1) xLabels[xLabels.length-1]=fmtMD(keyToDate(dates[dates.length-1])); }
+  return xLabels;
+}
+function buildRowChart(){
+  var dates = TEST_DATE_KEYS;
+  var leftPts = dates.map(function(dk){ return {y:numOrNull(getTestLog(dk)['左手划船8RM kg'])}; });
+  var rightPts = dates.map(function(dk){ return {y:numOrNull(getTestLog(dk)['右手划船8RM kg'])}; });
+  return {series:[{label:'左手 8RM',color:HEX.left,points:leftPts},{label:'右手 8RM',color:HEX.right,points:rightPts}], dates:dates};
+}
+function buildDiffChart(){
+  var dates = TEST_DATE_KEYS;
+  var pts = dates.map(function(dk){
+    var t = getTestLog(dk);
+    var l = numOrNull(t['左手划船8RM kg']), r = numOrNull(t['右手划船8RM kg']);
+    var v = (l!==null && r!==null && r!==0) ? Math.round(Math.abs(r-l)/r*100) : null;
+    return {y:v};
+  });
+  return {series:[{label:'左右差 %',color:HEX.danger,points:pts}], dates:dates};
+}
+
+if(!state.statsSymOn) state.statsSymOn = {A:true,C:true,D:true,E:true,'左後肩':true,'左腳踝':true};
+
+function renderStats(){
+  var parts = [];
+  var streaks = computeStreaks();
+  var adh = computeAdherence();
+
+  parts.push('<div class="streak-strip">');
+  parts.push('<div class="streak-box"><div class="sv">🔥 '+streaks.current+'</div><div class="sl">目前連續天數</div></div>');
+  parts.push('<div class="streak-box"><div class="sv">'+streaks.longest+'</div><div class="sl">最長連續紀錄</div></div>');
+  parts.push('<div class="streak-box"><div class="sv">'+adh.pct+'%</div><div class="sl">整體完成率 '+adh.done+'/'+adh.total+'</div></div>');
+  parts.push('</div>');
+
+  parts.push('<div class="section-title">五大狀況總覽<span class="tiny" style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">點卡片看成因</span></div>');
+  parts.push('<div class="sym-grid">');
+  ['A','C','D','E'].forEach(function(c){ parts.push(symptomCardHtml(c)); });
+  parts.push('</div>');
+  parts.push('<div class="sym-grid" style="margin-top:9px">');
+  ['左後肩','左腳踝'].forEach(function(c){ parts.push(symptomCardHtml(c)); });
+  parts.push('</div>');
+  parts.push('<div style="margin-top:9px">'+symptomCardHtml('B').replace('sym-card','sym-card').replace(/grid-column.*?;/,'')+'</div>');
+
+  parts.push('<div class="section-title">症狀分數趨勢</div>');
+  parts.push('<div class="chart-card">');
+  parts.push('<div class="chipbar" style="padding-bottom:10px">');
+  SYMPTOM_ORDER.filter(function(c){return c!=='B';}).forEach(function(c){
+    var on = state.statsSymOn[c]!==false;
+    parts.push('<button type="button" class="chip'+(on?' sel':'')+'" data-action="toggleStatSym" data-code="'+c+'" style="'+(on?('background:'+SYMPTOM_META[c].color+';border-color:'+SYMPTOM_META[c].color+';color:#1a1508'):'')+'">'+escHtml(SYMPTOM_META[c].code==='左後肩'||SYMPTOM_META[c].code==='左腳踝'?SYMPTOM_META[c].name:SYMPTOM_META[c].code)+'</button>');
+  });
+  parts.push('</div>');
+  var visCodes = SYMPTOM_ORDER.filter(function(c){ return c!=='B' && state.statsSymOn[c]!==false; });
+  var built = buildSymptomChartSeries(visCodes);
+  if(built.dates.length>=2){
+    parts.push('<div class="chart-wrap">'+lineChartSvg(built.series,{yMin:0,yMax:10,xLabels:sparseXLabels(built.dates)})+'</div>');
+    parts.push('<div class="chart-legend">'+built.series.map(function(s){ return '<span class="lg-item"><span class="lg-dot" style="background:'+s.color+'"></span>'+escHtml(s.label)+'</span>'; }).join('')+'</div>');
+  } else {
+    parts.push('<div class="chart-empty">再多記幾天症狀分數，這裡就會畫出趨勢線</div>');
+  }
+  parts.push('</div>');
+
+  parts.push('<div class="section-title">左右力量差（划船 8RM）</div>');
+  parts.push('<div class="chart-card">');
+  var rowChart = buildRowChart();
+  var rowFilled = rowChart.series.some(function(s){ return s.points.some(function(p){return p.y!==null;}); });
+  if(rowFilled){
+    parts.push('<div class="chart-wrap">'+lineChartSvg(rowChart.series,{xLabels:sparseXLabels(rowChart.dates)})+'</div>');
+    parts.push('<div class="chart-legend">'+rowChart.series.map(function(s){ return '<span class="lg-item"><span class="lg-dot" style="background:'+s.color+'"></span>'+escHtml(s.label)+'</span>'; }).join('')+'</div>');
+    var diffChart = buildDiffChart();
+    if(diffChart.series[0].points.some(function(p){return p.y!==null;})){
+      parts.push('<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><div class="tiny muted" style="margin-bottom:6px">左右差 %　<span style="color:var(--danger)">- - -</span> 10% 門檻</div>');
+      parts.push('<div class="chart-wrap">'+lineChartSvg(diffChart.series,{yMin:0,thresholdY:10,xLabels:sparseXLabels(diffChart.dates)})+'</div></div>');
+    }
+  } else {
+    parts.push('<div class="chart-empty">測試日填寫划船 8RM 後，這裡會畫出左右力量差趨勢</div>');
+  }
+  parts.push('</div>');
+
+  parts.push('<div class="section-title">各類型完成率（至今）</div>');
+  parts.push('<div class="chart-card">');
+  var byType = computeByDayType();
+  var anyType = false;
+  DAY_TYPES.concat(['測試日']).forEach(function(t){
+    var a = byType[t];
+    if(!a || !a.total) return;
+    anyType = true;
+    parts.push(barRowHtml(DAY_TYPE_INFO[t]?DAY_TYPE_INFO[t].short:t, a.done, a.total, DAYTYPE_HEX[t]||HEX.right, a.done+'/'+a.total));
+  });
+  if(!anyType) parts.push('<div class="chart-empty">尚無資料</div>');
+  parts.push('</div>');
+
+  parts.push('<div class="section-title">每週執行率</div>');
+  parts.push('<div class="chart-card">');
+  var wk = computeWeeklyAdherence();
+  if(wk.length){
+    wk.slice(-8).forEach(function(row){
+      parts.push(barRowHtml('W'+row.week, row.done, row.total, HEX.right, row.done+'/'+row.total));
+    });
+  } else {
+    parts.push('<div class="chart-empty">尚無資料</div>');
+  }
+  parts.push('</div>');
+
+  var bball = computeBballLoad();
+  var ankleFlags = computeAnkleFlagDays();
+  parts.push('<div class="section-title">其他數據</div>');
+  parts.push('<div class="card">');
+  parts.push('<div class="row" style="padding:6px 0"><span class="tiny muted">打波場次</span><span class="tiny" style="font-weight:700">'+bball.games+' 場 · 共 '+bball.minutes+' 分鐘</span></div>');
+  parts.push('<hr class="hair" style="margin:4px 0">');
+  parts.push('<div class="row" style="padding:6px 0"><span class="tiny muted">左腳踝紅旗天數</span><span class="tiny" style="font-weight:700;color:'+(ankleFlags.length?'var(--danger)':'var(--ink-dim)')+'">'+ankleFlags.length+' 天</span></div>');
+  if(ankleFlags.length){
+    parts.push('<div class="tiny muted" style="margin-top:4px">'+ankleFlags.map(function(k){return fmtMD(keyToDate(k));}).join('　·　')+'</div>');
+  }
+  parts.push('</div>');
+
+  parts.push(syncSectionHtml());
+  parts.push(backupSectionHtml());
+
+  return parts.join('');
+}
+
+function syncSectionHtml(){
+  var parts = [];
+  parts.push('<div class="section-title">跨裝置同步</div>');
+  parts.push('<div class="card sync-area">');
+  if(state.supaConnected){
+    var dotClass = state.syncStatus==='ok' ? 'ok' : (state.syncStatus==='pending' ? 'pending' : (state.syncStatus==='err' ? 'err' : 'off'));
+    var statusLabel = state.syncStatus==='ok' ? '已同步' : (state.syncStatus==='pending' ? '同步中…' : (state.syncStatus==='err' ? '同步失敗，稍後自動重試' : '已連線'));
+    parts.push('<div class="tiny" style="margin-bottom:10px"><span class="sync-dot '+dotClass+'"></span>'+statusLabel+(SYNC.queue.length?'（'+SYNC.queue.length+' 筆待送出）':'')+'</div>');
+    if(state.syncMsg) parts.push('<div class="tiny muted" style="margin-bottom:10px">'+escHtml(state.syncMsg)+'</div>');
+    parts.push('<div class="backup-row">');
+    parts.push('<button type="button" class="btn sm" data-action="syncNow">立即同步</button>');
+    parts.push('<button type="button" class="btn sm ghost" data-action="disconnectSync">中斷連線</button>');
+    parts.push('</div>');
+    parts.push('<div class="tiny muted" style="margin-top:8px;line-height:1.7">已連上你的 Supabase 專案，手機和電腦開這個網址、貼一樣的 URL 與金鑰，就會看到同一份資料。離線時照常記錄，恢復連線會自動補送。</div>');
+  } else {
+    parts.push('<div class="tiny muted" style="line-height:1.8;margin-bottom:10px">要在手機和電腦之間同步，需要一個你自己的 Supabase 專案（免費額度足夠這個用途）。建好之後把「Project URL」和「anon public key」貼在這裡，兩邊裝置都貼同一組就會連到同一份資料。設定步驟見交付的 SYNC_SETUP.md。</div>');
+    parts.push('<input type="text" placeholder="Project URL，例如 https://xxxx.supabase.co" data-action="syncFormUrl" value="'+escHtml(state.syncFormUrl)+'">');
+    parts.push('<input type="password" placeholder="anon public key" data-action="syncFormKey" value="'+escHtml(state.syncFormKey)+'">');
+    parts.push('<button type="button" class="btn sm primary block" data-action="connectSync">連接同步</button>');
+    if(state.syncMsg) parts.push('<div class="tiny" style="margin-top:8px;color:var(--danger)">'+escHtml(state.syncMsg)+'</div>');
+    parts.push('<div class="tiny muted" style="margin-top:10px;line-height:1.7">安全提醒：anon key 搭配資料表的存取規則，等於「知道網址跟金鑰的人都能讀寫這份資料」。這是個人使用的簡化設定，不要把這個網址和金鑰分享給別人。</div>');
+  }
+  parts.push('</div>');
+  return parts.join('');
+}
+
+function backupSectionHtml(){
+  var parts = [];
+  parts.push('<div class="section-title">你的資料</div>');
+  parts.push('<div class="card backup-area">');
+  var modeLabel = STORE.mode==='claude' ? 'Claude 已發布的 artifact 儲存（在 Claude 中開啟就會自動同步）' : (STORE.mode==='local' ? '此瀏覽器本機儲存（換裝置或清瀏覽器資料會不見）' : '尚未偵測到可用的持久儲存（僅此次對話期間）');
+  parts.push('<div class="tiny muted" style="line-height:1.8;margin-bottom:10px">目前儲存方式：<b style="color:var(--ink)">'+modeLabel+'</b>。不管開在哪裡，建議三不五時匯出一份備份——換手機、換瀏覽器、搬去 GitHub Pages 都靠這個。</div>');
+  parts.push('<div class="backup-row">');
+  parts.push('<button type="button" class="btn sm" data-action="doExport">匯出備份</button>');
+  parts.push('<button type="button" class="btn sm ghost" data-action="doDownload">下載 JSON 檔</button>');
+  parts.push('</div>');
+  parts.push('<textarea id="backup-ta" placeholder="按「匯出備份」會把你的紀錄整理成文字放這裡；要還原時，把備份文字貼回這裡再按「匯入」。" data-action="backupText">'+escHtml(state.backupText)+'</textarea>');
+  parts.push('<div class="backup-row"><button type="button" class="btn sm" data-action="doCopy">複製到剪貼簿</button><button type="button" class="btn sm primary" data-action="doImport">匯入還原</button></div>');
+  if(state.backupMsg) parts.push('<div class="copy-flash show">'+escHtml(state.backupMsg)+'</div>');
+  parts.push('</div>');
+  return parts.join('');
+}
+
+/* ================= LIBRARY tab ================= */
+if(!state.libOpen) state.libOpen = {};
+var LIB_FILTERS = ['全部','上肢A','上肢B','下肢','輕鬆日','打波','休息','測試日'];
+
+function libraryExerciseCardHtml(ex){
+  var lk = ex['課表日']+'#'+ex['順序'];
+  var isOpen = !!state.libOpen[lk];
+  var cat = ex['類別'];
+  var catTag = cat==='主項' ? '<span class="tag main">主項</span>' : (cat==='副項' ? '<span class="tag assist">副項</span>' : (cat==='重設' ? '<span class="tag reset">重設</span>' : '<span class="tag">測試</span>'));
+  var html = '<div class="ex-card'+(isOpen?' open':'')+'">';
+  html += '<div class="ex-top" data-action="toggleLibOpen" data-libkey="'+lk+'">';
+  html += '<span class="ex-num">'+ex['順序']+'</span>';
+  html += '<span class="badge-day '+(DAY_TYPE_INFO[ex['課表日']]?DAY_TYPE_INFO[ex['課表日']].cls:'')+'" style="flex:none;padding:3px 8px;font-size:10.5px;margin-top:2px">'+escHtml(DAY_TYPE_INFO[ex['課表日']]?DAY_TYPE_INFO[ex['課表日']].short:ex['課表日'])+'</span>';
+  html += '<div class="ex-body"><div class="ex-name">'+escHtml(ex['動作名稱'])+'</div>';
+  html += '<div class="ex-tags">'+catTag;
+  if(ex['左邊'] && ex['左邊']!=='—') html += '<span class="tag" style="background:var(--left-bg);color:var(--left-strong)">左 '+escHtml(ex['左邊'])+'</span>';
+  if(ex['右邊'] && ex['右邊']!=='—') html += '<span class="tag" style="background:var(--right-bg);color:var(--right-strong)">右 '+escHtml(ex['右邊'])+'</span>';
+  html += '</div></div>';
+  html += '<svg class="ex-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>';
+  html += '</div>';
+  html += '<div class="ex-detail">';
+  html += '<div class="ex-cue">'+escHtml(ex['執行要點'])+'</div>';
+  html += '<div class="ex-meta">';
+  if(ex['起始設定']) html += '<div><b>起始設定：</b>'+escHtml(ex['起始設定'])+'</div>';
+  if(ex['呼吸']) html += '<div><b>呼吸：</b>'+escHtml(ex['呼吸'])+'</div>';
+  if(ex['模組']) html += '<div><b>模組：</b>'+escHtml(ex['模組'])+'　<b>階段：</b>'+escHtml(ex['階段'])+'</div>';
+  if(ex['進階條件']) html += '<div><b>進階：</b>'+escHtml(ex['進階條件'])+'</div>';
+  html += '</div>';
+  if(ex['退階／紅旗'] && ex['退階／紅旗']!=='—') html += '<div class="ex-flagline">⚑ '+escHtml(ex['退階／紅旗'])+'</div>';
+  if(ex['左腳踝有事時'] && ex['左腳踝有事時'].indexOf('照做')!==0){
+    html += '<div class="ex-anklenote">🦶 左腳踝有事版：'+escHtml(ex['左腳踝有事時'])+'</div>';
+  }
+  var codes = symCodesOf(ex['對應狀況']);
+  if(codes.length){
+    html += '<div class="ex-symlink">';
+    codes.forEach(function(c){
+      var meta = SYMPTOM_META[c];
+      html += '<span class="tag sym" data-action="gotoKnowledgeSym" data-code="'+escHtml(c)+'">為什麼練 '+escHtml(meta?meta.name:c)+' →</span>';
+    });
+    html += '</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function renderLibrary(){
+  var parts = [];
+  parts.push('<input class="searchbox" type="text" placeholder="搜尋動作名稱、模組、對應狀況…" value="'+escHtml(state.libSearch)+'" data-action="libSearch">');
+  parts.push('<div class="chipbar">');
+  LIB_FILTERS.forEach(function(f){
+    parts.push('<button type="button" class="chip'+(state.libFilter===f?' sel':'')+'" data-action="setLibFilter" data-value="'+f+'">'+f+'</button>');
+  });
+  parts.push('</div>');
+
+  var list = EXERCISES.slice();
+  if(state.libFilter !== '全部'){
+    list = list.filter(function(e){ return e['課表日']===state.libFilter; });
+  }
+  var q = state.libSearch.trim().toLowerCase();
+  if(q){
+    list = list.filter(function(e){
+      return (e['動作名稱']+e['模組']+e['對應狀況']+e['執行要點']).toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  if(!list.length){
+    parts.push('<div class="card" style="text-align:center;color:var(--ink-faint)">沒有符合的動作</div>');
+    return parts.join('');
+  }
+
+  if(state.libFilter==='全部' && !q){
+    LIB_FILTERS.slice(1).forEach(function(dt){
+      var items = list.filter(function(e){ return e['課表日']===dt; });
+      if(!items.length) return;
+      parts.push('<div class="section-title">'+escHtml(DAY_TYPE_INFO[dt]?DAY_TYPE_INFO[dt].label:dt)+'</div>');
+      items.forEach(function(e){ parts.push(libraryExerciseCardHtml(e)); });
+    });
+  } else {
+    list.forEach(function(e){ parts.push(libraryExerciseCardHtml(e)); });
+  }
+  return parts.join('');
+}
+
+/* ================= KNOWLEDGE tab ================= */
+function kmStatusClass(status){
+  var s = String(status||'');
+  if(s.indexOf('已清零')===0) return 'st-已清零';
+  if(s.indexOf('觀察中')===0) return 'st-觀察中';
+  if(s.indexOf('已完成')===0) return 'st-已完成';
+  if(s.indexOf('已修正')===0) return 'st-已修正';
+  if(s.indexOf('現行採用')===0) return 'st-現行採用';
+  return '';
+}
+function knowledgeCardHtml(k){
+  var html = '<div class="km-card">';
+  html += '<div class="km-title">'+escHtml(k['主題'])+'</div>';
+  html += '<div class="km-badges">';
+  html += '<span class="km-badge cat">'+escHtml(k['分類'])+'</span>';
+  if(k['狀態']) html += '<span class="km-badge '+kmStatusClass(k['狀態'])+'">'+escHtml(k['狀態'])+'</span>';
+  if(k['證據強度']) html += '<span class="km-badge evi">'+escHtml(k['證據強度'])+'</span>';
+  html += '</div>';
+  html += '<div class="km-body">'+escHtml(k['內容'])+'</div>';
+  html += '<div class="km-foot"><span>'+escHtml(k['相關位置']||'')+'</span><span>'+escHtml(k['最後更新']||'')+'</span></div>';
+  html += '</div>';
+  return html;
+}
+function quickReferenceHtml(){
+  var parts = [];
+  parts.push('<div class="card" style="padding:6px 16px">');
+  parts.push('<details class="rationale"><summary>🚩 紅旗 — 出現就停止自我處理</summary><div class="rbody"><ul class="redflag-list" style="margin-top:8px">'+RED_FLAGS.map(function(f){return '<li>'+escHtml(f)+'</li>';}).join('')+'</ul></div></details>');
+  parts.push('<details class="rationale"><summary>三個階段與目前門檻</summary><div class="rbody">');
+  PHASES.forEach(function(p,i){
+    parts.push('<div style="margin-bottom:'+(i<PHASES.length-1?'12px':'0')+'"><b style="color:var(--ink)">'+p.name+'</b> <span class="tiny muted">'+p.weeks+'</span><div class="tiny muted" style="margin-top:2px">'+p.theme+'　·　容量 '+p.cap+'　·　'+p.breath+(p.unlock!=='—'?'　·　解封：'+p.unlock:'')+'</div></div>');
+  });
+  parts.push('<hr class="hair">');
+  parts.push('<div class="row" style="padding:4px 0"><span class="tiny">Phase 1→2 門檻</span><span class="pill" style="background:'+(phase2Unlocked()?'var(--ok-bg);color:var(--ok)':'var(--surface-2);color:var(--ink-dim)')+'">'+(phase2Unlocked()?'✓ 已達標':'靠牆滑行左肋外翻：是→否')+'</span></div>');
+  parts.push('<div class="row" style="padding:4px 0"><span class="tiny">Phase 2→3 門檻</span><span class="pill" style="background:'+(phase3Ready()?'var(--ok-bg);color:var(--ok)':'var(--surface-2);color:var(--ink-dim)')+'">'+(phase3Ready()?'✓ 已達標':'連續兩次 8RM 差<10% 且無麻')+'</span></div>');
+  parts.push('</div></details>');
+  parts.push('<details class="rationale"><summary>過頂階梯（狀況 B 的解封進度）</summary><div class="rbody">');
+  OVERHEAD_LADDER.forEach(function(o){
+    parts.push('<div style="padding:6px 0"><b style="color:var(--right-strong)">第'+o.stage+'階</b> '+escHtml(o.name)+'<div class="tiny muted" style="margin-top:2px">'+escHtml(o.cond)+'</div></div>');
+  });
+  parts.push('<div class="tiny muted" style="margin-top:4px">出現任何麻感 → 立刻退回上一階，並在日誌勾「有無麻感」。</div>');
+  parts.push('</div></details>');
+  parts.push('<details class="rationale"><summary>忙的時候，砍除順序</summary><div class="rbody"><table class="cut-table">'+CUT_ORDER.map(function(c){return '<tr><td>'+c.n+'</td><td>'+escHtml(c.what)+'<div class="tiny muted">'+escHtml(c.why)+'</div></td></tr>';}).join('')+'</table></div></details>');
+  parts.push('<details class="rationale"><summary>名詞對照表</summary><div class="rbody"><table class="def-table">'+TERMS.map(function(t){return '<tr><td>'+escHtml(t[0])+'</td><td>'+escHtml(t[1])+'</td></tr>';}).join('')+'</table></div></details>');
+  parts.push('<details class="rationale"><summary>隨身鐵律</summary><div class="rbody" style="line-height:2">'+
+    '1. 技術性力竭即停——動作一走樣就停，不管 RPE 到幾<br>'+
+    '2. 負重動作全部取消憋氣，只保留呼吸節奏<br>'+
+    '3. 左內收肌 100% 嚴禁被動拉筋，只做向心縮短<br>'+
+    '4. RDL 頂點站直即停，絕不挺髖夾臀<br>'+
+    '5. 箱深蹲：箱子拉近，大拇指掌根壓地<br>'+
+    '6. 要砍先砍打波，永不砍下肢日和每日重設'+
+  '</div></details>');
+  parts.push('</div>');
+  return parts.join('');
+}
+function renderKnowledge(){
+  var parts = [];
+  parts.push('<div class="card" style="text-align:center;font-size:12.5px;color:var(--ink-dim);line-height:1.8">課表卡管「做什麼」，這裡管「為什麼」。<br>本方案是訓練編排建議，不是醫療診斷。</div>');
+  parts.push(quickReferenceHtml());
+  parts.push('<input class="searchbox" type="text" placeholder="搜尋主題、內容…" value="'+escHtml(state.kmSearch)+'" data-action="kmSearchInput">');
+
+  if(state.kmSymFilter){
+    var meta = SYMPTOM_META[state.kmSymFilter];
+    parts.push('<div class="override-note" style="border-style:solid;border-color:var(--know-line);background:var(--know-bg);color:#cabdf0"><span>只顯示跟 <b style="color:var(--know)">'+escHtml(meta?meta.name:state.kmSymFilter)+'</b> 有關的知識卡</span><button type="button" data-action="clearKmSymFilter" style="color:var(--know)">清除</button></div>');
+  } else {
+    parts.push('<div class="chipbar">');
+    ['全部'].concat(KM_CATS).forEach(function(c){
+      parts.push('<button type="button" class="chip'+(state.kmFilter===c?' sel know':'')+'" data-action="setKmFilter" data-value="'+c+'">'+(c==='全部'?'全部':(KM_CAT_INFO[c].icon+' '+c))+'</button>');
+    });
+    parts.push('</div>');
+  }
+
+  var list = KNOWLEDGE.slice();
+  if(state.kmSymFilter){
+    list = list.filter(function(k){ return symCodesOf(k['對應狀況']).indexOf(state.kmSymFilter)!==-1; });
+  } else if(state.kmFilter !== '全部'){
+    list = list.filter(function(k){ return k['分類']===state.kmFilter; });
+  }
+  var q = state.kmSearch.trim().toLowerCase();
+  if(q){
+    list = list.filter(function(k){
+      return (k['主題']+k['內容']+k['分類']+k['對應狀況']).toLowerCase().indexOf(q)!==-1;
+    });
+  }
+
+  if(!list.length){
+    parts.push('<div class="card" style="text-align:center;color:var(--ink-faint)">沒有符合的知識卡</div>');
+    return parts.join('');
+  }
+
+  if(!state.kmSymFilter && state.kmFilter==='全部' && !q){
+    KM_CATS.forEach(function(cat){
+      var items = list.filter(function(k){ return k['分類']===cat; });
+      if(!items.length) return;
+      parts.push('<div class="section-title">'+KM_CAT_INFO[cat].icon+' '+cat+'<span class="tiny" style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">'+KM_CAT_INFO[cat].desc+'</span></div>');
+      items.forEach(function(k){ parts.push(knowledgeCardHtml(k)); });
+    });
+  } else {
+    list.forEach(function(k){ parts.push(knowledgeCardHtml(k)); });
+  }
+  return parts.join('');
+}
+
+/* ================= TESTS tab ================= */
+function testIsFilled(t){
+  return !!(t['左手划船8RM kg'] && t['右手划船8RM kg']);
+}
+function computeDiffPct(t){
+  var l = parseFloat(t['左手划船8RM kg']), r = parseFloat(t['右手划船8RM kg']);
+  if(!l || !r) return null;
+  return Math.round(Math.abs(r-l)/r*100);
+}
+function computeStageStatus(k){
+  var idx = TEST_DATE_KEYS.indexOf(k);
+  if(idx===-1) return {label:'額外測試（非排定的 4 週週期）', cls:''};
+  if(idx===0) return {label:'基準測試', cls:''};
+  var t = getTestLog(k);
+  if(k === TEST_DATE_KEYS[1]){
+    if(!t['靠牆滑行 左肋外翻']) return {label:'待填寫', cls:''};
+    return t['靠牆滑行 左肋外翻']==='否' ? {label:'✓ 達標，可進 Phase 2', cls:'ok'} : {label:'尚未達標，續留 Phase 1', cls:'bad'};
+  }
+  if(k === TEST_DATE_KEYS[2] || k === TEST_DATE_KEYS[3]){
+    if(!testIsFilled(t)) return {label:'待填寫', cls:''};
+    return phase3Ready() ? {label:'✓ 連續兩次達標，可進 Phase 3', cls:'ok'} : {label:'尚未連續達標', cls:'bad'};
+  }
+  return {label:'', cls:''};
+}
+
+function testFormHtml(k){
+  var t = getTestLog(k);
+  var parts = [];
+  parts.push('<div class="card">');
+  parts.push('<div class="section-title" style="margin-top:0">划船 8RM</div>');
+  parts.push('<div class="row" style="gap:10px">');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'左手划船8RM kg','左手 kg',t['左手划船8RM kg'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'右手划船8RM kg','右手 kg',t['右手划船8RM kg'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('</div>');
+  var diff = computeDiffPct(t);
+  parts.push('<div class="tiny muted">左右差 % = (右－左)÷右×100　'+(diff!==null? ('→ <b style="color:var(--right-strong)">'+diff+'%</b>'+(diff<10?'　低於 10% 門檻':'')) : '　（兩邊都填才會算）')+'</div>');
+
+  parts.push('<div class="section-title">單腳 RDL — 指尖離地 cm（越小越好）</div>');
+  parts.push('<div class="row" style="gap:10px">');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'左單腳RDL 指尖離地cm','左（右手量）cm',t['左單腳RDL 指尖離地cm'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'右單腳RDL 指尖離地cm','右（左手量）cm',t['右單腳RDL 指尖離地cm'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('</div>');
+
+  parts.push('<div class="section-title">靠牆滑行</div>');
+  parts.push('<div class="field"><label>左肋有沒有外翻</label>'+segHtml('test',k,'靠牆滑行 左肋外翻',[['是','是（外翻）'],['否','否']],t['靠牆滑行 左肋外翻'])+'</div>');
+
+  parts.push('<div class="section-title">Roos／EAST 三分鐘</div>');
+  parts.push(textFieldHtml('test',k,'EAST 左後肩酸出現秒數','左後肩開始酸的秒數',t['EAST 左後肩酸出現秒數'],{type:'number',placeholder:'例如 90'}));
+  parts.push('<div class="field"><label>有沒有麻／電／沉重／手變白</label>'+segHtml('test',k,'EAST 有無麻',[['有','有'],['無','無']],t['EAST 有無麻'])+'</div>');
+
+  parts.push('<div class="section-title">內收肌落下 + 震盪判別</div>');
+  parts.push('<div class="row" style="gap:10px">');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'內收肌落下 左 拳','左（拳頭數）',t['內收肌落下 左 拳'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('<div style="flex:1">'+textFieldHtml('test',k,'內收肌落下 右 拳','右（拳頭數）',t['內收肌落下 右 拳'],{type:'number',step:'0.5'})+'</div>');
+  parts.push('</div>');
+  parts.push('<div class="field"><label>震盪後有無改善</label>'+segHtml('test',k,'內收肌 震盪後有改善',[['有改善','有改善（軟組織）'],['無變化','無變化（關節囊／骨性）']],t['內收肌 震盪後有改善'])+'</div>');
+
+  parts.push('<div class="section-title">過頂階梯</div>');
+  parts.push('<div class="field">'+segHtml('test',k,'過頂階梯 第幾階',[['1','第1階'],['2','第2階'],['3','第3階'],['4','第4階']],t['過頂階梯 第幾階'])+'</div>');
+
+  parts.push('<div class="section-title">六項症狀評分 0–10</div>');
+  [['A 肩胛翼狀','A 肩胛翼狀'],['C 左髕腱','C 左髕腱'],['D 右髖彈響','D 右髖彈響'],['E 左內收肌','E 左內收肌'],['左後肩酸','左後肩酸'],['左腳踝','左腳踝']].forEach(function(pair){
+    parts.push('<div class="field"><label>'+pair[1]+'</label>'+scorebandHtml('test',k,pair[0],t[pair[0]])+'</div>');
+  });
+
+  var stat = computeStageStatus(k);
+  if(stat.label){
+    parts.push('<div class="banner '+(stat.cls==='ok'?'done':(stat.cls==='bad'?'warn':'deload'))+'">'+(stat.cls==='ok'?'✓ ':'▸ ')+stat.label+'</div>');
+  }
+
+  parts.push(textFieldHtml('test',k,'備註','備註',t['備註'],{type:'textarea'}));
+  parts.push('<button class="btn ghost block" data-action="closeTest">收合</button>');
+  parts.push('</div>');
+  return parts.join('');
+}
+
+function allTestKeys(){
+  var extra = Object.keys(state.testLogs).filter(function(k){
+    if(TEST_DATE_KEYS.indexOf(k)!==-1) return false;
+    var t = state.testLogs[k];
+    return t && Object.keys(t).some(function(f){ return t[f]!==undefined && t[f]!==null && t[f]!==''; });
+  });
+  return TEST_DATE_KEYS.concat(extra).sort();
+}
+
+function renderTests(){
+  var parts = [];
+  var keys = allTestKeys();
+
+  var filledTests = keys.map(function(k){return getTestLog(k);}).filter(testIsFilled);
+  if(filledTests.length >= 2){
+    parts.push('<div class="section-title" style="margin-top:0">趨勢</div>');
+    parts.push('<div class="card">');
+    var rows = [
+      ['左划船8RM','左手划船8RM kg','kg'], ['右划船8RM','右手划船8RM kg','kg'],
+      ['左右差%','__diff__','%'], ['左後肩酸秒數','EAST 左後肩酸出現秒數','s']
+    ];
+    rows.forEach(function(r){
+      var vals = keys.map(function(k){
+        var t = getTestLog(k);
+        if(!testIsFilled(t) && r[1]!=='EAST 左後肩酸出現秒數') { if(!t[r[1]] && r[1]!=='__diff__') return null; }
+        var v = r[1]==='__diff__' ? computeDiffPct(t) : t[r[1]];
+        return (v===undefined||v==='') ? null : v;
+      });
+      if(vals.every(function(v){return v===null;})) return;
+      parts.push('<div class="trend-row"><span class="tlabel">'+r[0]+'</span><span class="tvals">'+
+        vals.map(function(v,i){
+          if(v===null) return '';
+          var sc = SCHEDULE[keys[i]];
+          var wl = sc ? ('W'+sc.weekNum) : fmtMD(keyToDate(keys[i]));
+          return '<span class="tv">'+wl+' · '+v+r[2]+'</span>';
+        }).join('')+
+      '</span></div>');
+    });
+    parts.push('</div>');
+  }
+
+  parts.push('<div class="section-title" style="margin-top:0">測試記錄</div>');
+  if(keys.indexOf(todayKey())===-1){
+    parts.push('<button type="button" class="btn ghost block" data-action="openTest" data-key="'+todayKey()+'" style="margin-bottom:12px">+ 新增今天的額外測試</button>');
+  }
+  keys.forEach(function(k){
+    var t = getTestLog(k);
+    var filled = testIsFilled(t);
+    var isOpen = (state.testOpen === k);
+    var d = keyToDate(k);
+    var sc = SCHEDULE[k];
+    parts.push('<div class="card" style="padding:14px 16px;'+(isOpen?'border-color:var(--right)':'')+'">');
+    parts.push('<div class="row" data-action="'+(isOpen?'closeTest':'openTest')+'" data-key="'+k+'" style="cursor:pointer">');
+    parts.push('<div><div class="disp" style="font-weight:700">'+fmtYMD(d)+(sc?(' · W'+sc.weekNum):'')+'</div><div class="tiny muted">'+escHtml(sc?sc.phase:'額外測試')+'</div></div>');
+    if(filled){
+      var diff = computeDiffPct(t);
+      parts.push('<span class="pill" style="background:var(--ok-bg);color:var(--ok)">左'+t['左手划船8RM kg']+'／右'+t['右手划船8RM kg']+'kg'+(diff!==null?'（差'+diff+'%）':'')+'</span>');
+    } else {
+      parts.push('<span class="pill" style="background:var(--surface-2);color:var(--ink-dim)">'+(k===todayKey()?'今天':(k<todayKey()?'待補':'尚未到'))+' · 填寫</span>');
+    }
+    parts.push('</div>');
+    if(isOpen){ parts.push(testFormHtml(k)); }
+    parts.push('</div>');
+  });
+
+  return parts.join('');
+}
+
+/* ================= top-level render + topbar ================= */
+const TAB_META = {
+  today:    {eyebrow:'ASYMMETRY PROTOCOL', title:'今日訓練'},
+  calendar: {eyebrow:'12-WEEK PLAN', title:'訓練日曆'},
+  stats:    {eyebrow:'YOUR NUMBERS', title:'統計數據'},
+  library:  {eyebrow:'REFERENCE', title:'動作庫'},
+  knowledge:{eyebrow:'THE WHY', title:'知識手冊'},
+  tests:    {eyebrow:'EVERY 4 WEEKS', title:'測試記錄'}
+};
+var _lastPillSig = null; // tracks which day-type pill we last auto-scrolled to, so render() only nudges the horizontal picker when the selection actually changed instead of on every button press
+function render(){
+  var view = document.getElementById('view');
+  var html;
+  if(state.tab==='today') html = renderToday();
+  else if(state.tab==='calendar') html = renderCalendar();
+  else if(state.tab==='stats') html = renderStats();
+  else if(state.tab==='library') html = renderLibrary();
+  else if(state.tab==='knowledge') html = renderKnowledge();
+  else html = renderTests();
+  view.innerHTML = '<div class="screen">'+html+'</div>';
+
+  // Particle Human (Step 1 prototype): re-attach/resize into the fresh DOM node.
+  // mount() is idempotent — it only creates the WebGL scene once, ever.
+  if(state.tab==='today'){
+    var phSlot = document.getElementById('particle-human-slot');
+    if(phSlot && window.ParticleHuman){ window.ParticleHuman.mount(phSlot); }
+  }
+
+  var meta = TAB_META[state.tab];
+  document.getElementById('tb-eyebrow').textContent = meta.eyebrow;
+  document.getElementById('tb-title').textContent = meta.title;
+  var sub = '';
+  if(state.tab==='today'){
+    var sc = SCHEDULE[todayKey()];
+    sub = sc ? ('今天 · '+DOW_ZH[todayDate().getDay()]+'　W'+sc.weekNum+' · '+sc.phase) : '';
+  } else if(state.tab==='calendar'){
+    sub = PLAN_START_KEY+' ～ '+PLAN_END_KEY;
+  } else if(state.tab==='stats'){
+    sub = '完成率、症狀趨勢、左右力量差';
+  } else if(state.tab==='library'){
+    sub = EXERCISES.length+' 個動作';
+  } else if(state.tab==='knowledge'){
+    sub = KNOWLEDGE.length+' 則知識卡 · 課表卡的「為什麼」';
+  } else if(state.tab==='tests'){
+    sub = 'W1 · W4 · W8 · W12';
+  }
+  document.getElementById('tb-sub').textContent = sub;
+
+  document.querySelectorAll('#tabbar button').forEach(function(b){
+    b.classList.toggle('active', b.dataset.tab===state.tab);
+  });
+
+  if(state.tab==='today'){
+    var selPill = document.querySelector('.daytype-pill.sel');
+    var pillSig = state.focusDate+'|'+(selPill?selPill.dataset.value:'');
+    if(selPill && pillSig !== _lastPillSig){
+      var picker = selPill.closest('.daytype-picker');
+      if(picker){
+        var pr = selPill.getBoundingClientRect(), cr = picker.getBoundingClientRect();
+        if(pr.left < cr.left) picker.scrollLeft -= (cr.left - pr.left) + 10;
+        else if(pr.right > cr.right) picker.scrollLeft += (pr.right - cr.right) + 10;
+      }
+    }
+    _lastPillSig = pillSig;
+  } else {
+    _lastPillSig = null;
+  }
+}
+
+function setNested(obj, path, value){
+  var parts = path.split('.');
+  var o = obj;
+  for(var i=0;i<parts.length-1;i++){ o = o[parts[i]]; }
+  o[parts[parts.length-1]] = value;
+}
+function getNested(obj, path){
+  var parts = path.split('.');
+  var o = obj;
+  for(var i=0;i<parts.length;i++){ o = o[parts[i]]; if(o===undefined) return undefined; }
+  return o;
+}
+function scopeObj(scope, key){
+  return scope==='test' ? getTestLog(key) : getDayLog(key);
+}
+
+/* ================= event delegation ================= */
+document.getElementById('view').addEventListener('click', async function(e){
+  var t = e.target.closest('[data-action]');
+  if(!t) return;
+  var action = t.dataset.action;
+
+  if(action==='prevDay'){ state.focusDate = dateKey(addDays(keyToDate(state.focusDate),-1)); render(); return; }
+  if(action==='nextDay'){ state.focusDate = dateKey(addDays(keyToDate(state.focusDate),1)); render(); return; }
+  if(action==='jumpToday'){ state.focusDate = todayKey(); render(); return; }
+  if(action==='gotoDay'){ state.focusDate = t.dataset.key; state.tab='today'; render(); window.scrollTo(0,0); return; }
+  if(action==='gotoTest'){ state.tab='tests'; state.testOpen = t.dataset.key; render(); window.scrollTo(0,0); return; }
+  if(action==='openTest'){ state.testOpen = t.dataset.key; render(); return; }
+  if(action==='closeTest'){ state.testOpen = null; render(); return; }
+  if(action==='toggleAnkle'){ state.ankleMode = !state.ankleMode; scheduleSave('settings'); render(); return; }
+  if(action==='toggleExOpen'){ var ok=t.dataset.exkey; state.openEx[ok] = !state.openEx[ok]; render(); return; }
+  if(action==='toggleLibOpen'){ var lk=t.dataset.libkey; state.libOpen[lk] = !state.libOpen[lk]; render(); return; }
+  if(action==='toggleExDone'){
+    var w = getDayLog(t.dataset.key);
+    var ek = t.dataset.exkey;
+    w.exDone[ek] = !w.exDone[ek];
+    scheduleSave('day', t.dataset.key); render(); return;
+  }
+  if(action==='toggleDayDone'){
+    var w2 = getDayLog(t.dataset.key);
+    w2.dayDone = !w2.dayDone;
+    scheduleSave('day', t.dataset.key); render(); return;
+  }
+  if(action==='completeAll'){
+    var k4 = t.dataset.key;
+    var w4 = getDayLog(k4);
+    var dt4 = w4.dayType;
+    var list4 = EX_BY_DAYTYPE[dt4] || [];
+    list4.forEach(function(e){ w4.exDone[exKey(e['課表日'],e['順序'])] = true; });
+    w4.dayDone = true;
+    state.celebrate = k4;
+    scheduleSave('day', k4); render();
+    setTimeout(function(){ if(state.celebrate===k4){ state.celebrate=null; render(); } }, 900);
+    return;
+  }
+  if(action==='setDayType'){
+    var k5=t.dataset.key, v5=t.dataset.value;
+    getDayLog(k5).dayType = v5;
+    scheduleSave('day', k5); render(); return;
+  }
+  if(action==='resetDayType'){
+    var k6=t.dataset.key;
+    var w6=getDayLog(k6);
+    var sc6=SCHEDULE[k6];
+    w6.dayType = sc6 ? sc6.dayType : w6.dayType;
+    scheduleSave('day', k6); render(); return;
+  }
+  if(action==='toggleBool'){
+    var obj = scopeObj(t.dataset.scope, t.dataset.key);
+    setNested(obj, t.dataset.field, !getNested(obj, t.dataset.field));
+    scheduleSave(t.dataset.scope==='test'?'test':'day', t.dataset.key); render(); return;
+  }
+  if(action==='setSeg'){
+    var obj2 = scopeObj(t.dataset.scope, t.dataset.key);
+    var cur = getNested(obj2, t.dataset.field);
+    var val = t.dataset.value;
+    setNested(obj2, t.dataset.field, (String(cur)===String(val)) ? '' : val);
+    scheduleSave(t.dataset.scope==='test'?'test':'day', t.dataset.key); render(); return;
+  }
+  if(action==='setLibFilter'){ state.libFilter = t.dataset.value; render(); return; }
+  if(action==='setKmFilter'){ state.kmFilter = t.dataset.value; state.kmSymFilter=null; render(); return; }
+  if(action==='gotoKnowledgeSym'){ state.tab='knowledge'; state.kmSymFilter=t.dataset.code; state.kmFilter='全部'; state.kmSearch=''; render(); window.scrollTo(0,0); return; }
+  if(action==='clearKmSymFilter'){ state.kmSymFilter=null; render(); return; }
+  if(action==='toggleStatSym'){ var c7=t.dataset.code; state.statsSymOn[c7] = (state.statsSymOn[c7]===false)?true:false; render(); return; }
+  if(action==='doExport'){ state.backupText = buildBackupJSON(); state.backupMsg='已產生備份文字，記得複製走或下載。'; render(); return; }
+  if(action==='doDownload'){ var okd=downloadBackupFile(); state.backupMsg = okd? '已觸發下載。' : '這個環境不支援直接下載，改用「匯出備份」+「複製到剪貼簿」。'; render(); return; }
+  if(action==='doCopy'){
+    var text9 = state.backupText || buildBackupJSON();
+    state.backupText = text9;
+    var ok9 = await copyBackupToClipboard(text9);
+    state.backupMsg = ok9 ? '已複製到剪貼簿。' : '複製失敗，請手動選取文字框內容複製。';
+    render(); return;
+  }
+  if(action==='doImport'){
+    var ok10 = restoreFromBackupText(state.backupText);
+    state.backupMsg = ok10 ? '已匯入還原，資料已套用。' : '格式不正確，請確認貼上的是完整備份文字。';
+    render(); return;
+  }
+  if(action==='connectSync'){
+    var url = (state.syncFormUrl||'').trim();
+    var key = (state.syncFormKey||'').trim();
+    if(!url || !key){ state.syncMsg = '請把 Project URL 和 anon key 都貼上。'; render(); return; }
+    var ok11 = SYNC.init(url, key);
+    if(ok11){
+      state.supaUrl = url; state.supaKey = key; state.syncMsg = '';
+      try{ await STORE.set('supa-config', JSON.stringify({url:url, key:key})); }catch(e){}
+      await SYNC.pullAndMerge();
+      SYNC.queuePushAll(); // make sure anything only-local gets pushed up too
+    } else {
+      state.syncMsg = '連線失敗，請確認網址與金鑰是否正確，以及是否已用 SYNC_SETUP.md 建好三張表。';
+    }
+    render(); return;
+  }
+  if(action==='disconnectSync'){
+    state.supaConnected = false; state.supaUrl=''; state.supaKey=''; SYNC.client=null;
+    try{ await STORE.set('supa-config', JSON.stringify({url:'', key:''})); }catch(e){}
+    render(); return;
+  }
+  if(action==='syncNow'){ await SYNC.flushQueue(); await SYNC.pullAndMerge(); render(); return; }
+});
+
+document.getElementById('view').addEventListener('input', function(e){
+  var t = e.target.closest('[data-action="setText"],[data-action="libSearch"],[data-action="kmSearchInput"],[data-action="backupText"]');
+  if(!t) return;
+  if(t.dataset.action==='libSearch'){
+    state.libSearch = t.value;
+    var caret = t.selectionStart;
+    render();
+    var again = document.querySelector('.searchbox');
+    if(again){ again.focus(); try{ again.setSelectionRange(caret, caret); }catch(e){} }
+    return;
+  }
+  if(t.dataset.action==='kmSearchInput'){
+    state.kmSearch = t.value;
+    var caret2 = t.selectionStart;
+    render();
+    var again2 = document.querySelector('.searchbox');
+    if(again2){ again2.focus(); try{ again2.setSelectionRange(caret2, caret2); }catch(e){} }
+    return;
+  }
+  if(t.dataset.action==='backupText'){ state.backupText = t.value; return; }
+  var obj = scopeObj(t.dataset.scope, t.dataset.key);
+  obj[t.dataset.field] = t.value;
+  scheduleSave(t.dataset.scope==='test'?'test':'day', t.dataset.key);
+});
+
+document.getElementById('view').addEventListener('input', function(e){
+  var t2 = e.target.closest('[data-action="syncFormUrl"],[data-action="syncFormKey"]');
+  if(!t2) return;
+  if(t2.dataset.action==='syncFormUrl') state.syncFormUrl = t2.value;
+  if(t2.dataset.action==='syncFormKey') state.syncFormKey = t2.value;
+});
+
+document.getElementById('view').addEventListener('change', function(e){
+  var t = e.target.closest('[data-action="setText"]');
+  if(!t) return;
+  var obj = scopeObj(t.dataset.scope, t.dataset.key);
+  obj[t.dataset.field] = t.value;
+  scheduleSave(t.dataset.scope==='test'?'test':'day', t.dataset.key);
+  render();
+});
+
+document.getElementById('tabbar').addEventListener('click', function(e){
+  var b = e.target.closest('button[data-tab]');
+  if(!b) return;
+  state.tab = b.dataset.tab;
+  render();
+  document.getElementById('view').scrollTop = 0;
+  window.scrollTo(0,0);
+});
+
+/* ================= init ================= */
+async function init(){
+  await loadAll();
+  render();
+}
+init();
+
+window.addEventListener('pagehide', function(){
+  if(window.ParticleHuman){ window.ParticleHuman.destroy(); }
+});
+
+</script>
+</body>
+</html>
